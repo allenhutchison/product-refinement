@@ -1,7 +1,28 @@
 [project]
-name = "product-refinement"
+name = "ai-spec-generator"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
 requires-python = ">=3.9"
-dependencies = []
+description = "An AI-powered tool for generating and refining product specifications using OpenAI."
+authors = [
+    {name = "Allen Hutchison", email = "allen@hutchison.org"}
+]
+license = "MIT"
+readme = "README.md"
+dependencies = [
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0"  # Optional: For managing API keys securely
+]
+
+[build-system]
+requires = ["uv"]
+build-backend = "uv.build"
+
+[tool.uv]
+virtualenvs.in-project = true  # Ensures the virtual environment is stored inside the project
+
+[tool.uv.dependencies]
+openai = ">=1.0.0"
+python-dotenv = ">=1.0.0"
+
+[tool.uv.scripts]
+start = "python spec.py"
