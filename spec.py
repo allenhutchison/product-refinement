@@ -1,8 +1,22 @@
-import openai
+import argparse
 import json
-from datetime import datetime
+import logging
 import os
+from datetime import datetime
+
+import openai
 from dotenv import load_dotenv
+
+# Add command line argument parsing
+parser = argparse.ArgumentParser(description='AI-Powered Product Specification Generator')
+parser.add_argument('--log-level', 
+                   default='INFO',
+                   choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                   help='Set the logging level')
+args = parser.parse_args()
+
+# Configure logging with command line argument
+logging.basicConfig(level=getattr(logging, args.log_level))
 
 # Load environment variables from .env file
 load_dotenv()
@@ -125,7 +139,7 @@ def refine_spec(spec):
 
         try:
             # Add debug logging
-            print("\nDebug - AI Response:", follow_up_questions)
+            logging.debug("AI Response: %s", follow_up_questions)
             
             # Try to clean the response if it contains markdown code blocks
             if "```json" in follow_up_questions:
@@ -321,16 +335,16 @@ def load_specification(filename):
         filename (str): Name of the JSON file to load
         
     Returns:
-        str: The specification text
+        tuple: (specification_text, project_name)
     """
     filepath = os.path.join("specs", filename)
     try:
         with open(filepath, "r") as f:
             data = json.load(f)
-            return data.get("specification", "")
+            return data.get("specification", ""), data.get("product_name")
     except (json.JSONDecodeError, IOError) as e:
         print(f"Error loading specification: {e}")
-        return None
+        return None, None
 
 def choose_specification():
     """Allow user to choose between creating a new specification or loading an existing one."""
@@ -381,37 +395,55 @@ def choose_specification():
                                 print("Invalid version number. Using latest version.")
                         
                         filename = specs[spec_index][0]
-                        spec = load_specification(os.path.join(project_dir, filename))
+                        spec, project_name = load_specification(os.path.join(project_dir, filename))
                         if spec:
-                            return False, spec
+                            return False, (spec, project_name)
                 except ValueError:
                     pass
                 print("Invalid choice. Please try again.")
         else:
             print("Invalid choice. Please enter 1 or 2.")
 
+def suggest_project_name(spec):
+    """Get an AI suggestion for the project name based on the specification."""
+    prompt = """
+    Based on this product specification, suggest a concise, memorable project name.
+    Return ONLY the suggested name, nothing else.
+    
+    Specification:
+    {spec}
+    """.format(spec=spec)
+    
+    suggested_name = ask_ai(prompt, stream=False).strip()
+    
+    print(f"\n🤖 Suggested project name: {suggested_name}")
+    
+    # Ask user if they want to use the suggested name
+    choice = ask_user("Would you like to use this name? (yes/no)").lower()
+    if choice.startswith('y'):
+        return suggested_name
+    
+    # If user doesn't like the suggestion, ask for their preferred name
+    return ask_user("Please enter your preferred project name:")
+
 if __name__ == "__main__":
-    # Choose whether to create new or load existing
     is_new, loaded_spec = choose_specification()
+    project_name = None
     
     if is_new:
-        # Create new specification
         product_description = ask_user("Describe your product in a few sentences:")
         spec = generate_initial_spec(product_description)
         print("\n📄 Initial Specification Draft:\n", spec)
     else:
-        # Use loaded specification
-        spec = loaded_spec
+        spec, project_name = loaded_spec  # Now returns both spec and name
         print("\n📄 Loaded Specification:\n", spec)
     
-    # Continue with refinement
     updated_spec = refine_spec(spec)
-    
-    # Final AI-powered formatting
     final_spec = finalize_spec(updated_spec)
-    
-    # Display the final product specification
     print("\n✅ FINAL PRODUCT SPECIFICATION:\n", final_spec)
     
-    # Save the specification
-    save_specification(final_spec)
+    # Only suggest name for new specs
+    if is_new:
+        project_name = suggest_project_name(final_spec)
+    
+    save_specification(final_spec, project_name)
