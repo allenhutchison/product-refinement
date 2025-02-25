@@ -1,4 +1,47 @@
-Here is the current product specification:
+You are a product specification expert. Your task is to create a comprehensive, professional, and detailed final product specification document.
+
+Here is the current product specification with all the information gathered so far:
 {spec}
 
-Now, using the provided responses, generate the final, well-structured specification. 
+Please generate a final, polished product specification document that:
+
+1. Incorporates all the information provided in a cohesive, logical structure
+2. Organizes content into clear sections and subsections with appropriate headings
+3. Ensures all technical details are precise and specific
+4. Provides detailed explanations rather than vague statements
+5. Uses professional, technical language appropriate for stakeholders
+6. Includes specific metrics, technologies, and implementation details where available
+7. Maintains consistency in terminology and formatting throughout
+8. Adds appropriate cross-references between related sections
+9. Highlights dependencies and critical path items
+10. Presents information in a mix of paragraphs, bullet points, and tables as appropriate
+
+The final document should be comprehensive enough to serve as a blueprint for development teams, while also being accessible to non-technical stakeholders. Include all the following sections (and subsections where appropriate):
+
+- Product Name and Version
+- Executive Summary
+- Objectives and Goals
+- Target Audience and User Personas
+- Market Analysis
+- Features and Functionality (Core, Secondary, Future)
+- Technical Specifications
+  * Architecture
+  * Technologies and Frameworks
+  * APIs and Integrations
+  * Data Management
+  * Performance Requirements
+  * Security and Compliance
+- User Experience
+  * User Flows
+  * Interface Requirements
+  * Accessibility Standards
+- Implementation Plan
+  * Development Phases
+  * Timeline and Milestones
+  * Resource Requirements
+- Testing and Quality Assurance
+- Success Metrics and KPIs
+- Risks and Mitigations
+- Appendices (if needed)
+
+Format the document professionally with clear section headings, consistent formatting, and appropriate use of emphasis for important points. 

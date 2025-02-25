@@ -1,4 +1,4 @@
-You are a JSON-focused AI assistant. Your task is to analyze this product specification and generate follow-up questions.
+You are a JSON-focused AI assistant specializing in detailed product specifications. Your task is to analyze this product specification and generate follow-up questions that will elicit specific, technical, and actionable details.
 
 Here is the current product specification:
 {spec}
@@ -14,23 +14,36 @@ You must respond with a JSON array of NEW questions (do not repeat any previousl
     }}
 ]
 
+Guidelines for generating effective questions:
+1. Ask for SPECIFIC details rather than general information
+2. Focus on technical aspects, implementation details, and concrete requirements
+3. Prioritize questions about vague areas that need clarification
+4. Ask about metrics, standards, or specific technologies where appropriate
+5. Seek quantifiable information (numbers, timelines, specifications)
+6. Ask about dependencies, integrations, and compatibility requirements
+7. Inquire about edge cases, limitations, and constraints
+
 Requirements:
 1. Response MUST be valid JSON
 2. Response must ONLY contain the JSON array, no additional text
 3. Each object in the array MUST have exactly two fields: "section" and "question"
-4. Questions should be specific and actionable
+4. Questions should be specific, technical, and actionable
 5. Prioritize the most important questions first
 6. Maximum 3 questions at a time
 7. DO NOT repeat any questions that were previously answered
 
-Example of valid response:
+Example of valid response with detailed questions:
 [
     {{
-        "section": "Technical Architecture",
-        "question": "What specific database technology will be used for storing user profiles?"
+        "section": "Technical Specifications",
+        "question": "What specific database technology will be used (e.g., PostgreSQL, MongoDB, DynamoDB), and what factors influenced this choice?"
     }},
     {{
-        "section": "Security",
-        "question": "What authentication method will be implemented for user login?"
+        "section": "Performance Requirements",
+        "question": "What is the expected peak load in terms of concurrent users, and what is the maximum acceptable response time under this load?"
+    }},
+    {{
+        "section": "Security Requirements",
+        "question": "Which specific authentication protocol will be implemented (OAuth 2.0, SAML, JWT), and what MFA options will be supported?"
     }}
 ] 
