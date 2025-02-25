@@ -14,6 +14,19 @@ parser.add_argument('--log-level',
                    default='INFO',
                    choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                    help='Set the logging level')
+parser.add_argument('--model',
+                   default='gpt-4-turbo',
+                   choices=[
+                       # OpenAI models
+                       'gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo',
+                       # OpenAI "o" models
+                       'o1', 'o1-mini', 'o3',
+                       # Anthropic models
+                       'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku',
+                       # Google models
+                       'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'
+                   ],
+                   help='Select the AI model to use')
 args = parser.parse_args()
 
 # Configure logging with command line argument
@@ -25,16 +38,37 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 # Load environment variables from .env file
 load_dotenv()
 
-# Allow dynamic model selection
-MODEL_NAME = "gpt-4"  
+# Use model from command line arguments
+MODEL_NAME = args.model
 
-# Get OpenAI API Key from environment variables
+# Get API Keys from environment variables
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY environment variable is not set. Please check your .env file.")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Initialize the OpenAI client
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
+# Map "o" models to their full names
+O_MODEL_MAPPING = {
+    "o1": "gpt-4o",
+    "o1-mini": "gpt-4o-mini",
+    "o3": "gpt-4o-2024-05-13",  # Use the specific version identifier
+}
+
+# Check for required API keys based on selected model
+if MODEL_NAME.startswith("gpt") or MODEL_NAME in O_MODEL_MAPPING:
+    if not OPENAI_API_KEY:
+        raise ValueError("OPENAI_API_KEY environment variable is not set. Please check your .env file.")
+    # Initialize the OpenAI client
+    openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
+elif MODEL_NAME.startswith("claude"):
+    if not ANTHROPIC_API_KEY:
+        raise ValueError("ANTHROPIC_API_KEY environment variable is not set. Please check your .env file.")
+    # For Claude models, we'll use the Anthropic API directly in the ask_ai function
+elif MODEL_NAME.startswith("gemini"):
+    if not GOOGLE_API_KEY:
+        raise ValueError("GOOGLE_API_KEY environment variable is not set. Please check your .env file.")
+    # For Gemini models, we'll use the Google API directly in the ask_ai function
+else:
+    raise ValueError(f"Unsupported model: {MODEL_NAME}")
 
 def load_prompt(prompt_file):
     """Load a prompt from a file in the prompts directory."""
@@ -54,29 +88,50 @@ except ValueError as e:
     print(f"Error loading prompts: {str(e)}")
     sys.exit(1)
 
-def ask_ai(prompt, model_name="gpt-4", stream=True):
+def ask_ai(prompt, model_name=None, stream=True):
     """
-    Calls the OpenAI API to interact with an AI model.
+    Calls the AI API to interact with an AI model.
 
     - If `stream=True`, prints the response as it arrives.
     - Otherwise, waits for the full response.
 
     Args:
         prompt (str): The input prompt to the AI model.
-        model_name (str): The name of the model to use.
+        model_name (str): The name of the model to use. If None, uses the global MODEL_NAME.
         stream (bool): Whether to stream the response.
 
     Returns:
         str: The full AI-generated response.
     """
-    response = client.chat.completions.create(
+    if model_name is None:
+        model_name = MODEL_NAME
+    
+    # Map "o" models to their full names if needed
+    if model_name in O_MODEL_MAPPING:
+        actual_model_name = O_MODEL_MAPPING[model_name]
+    else:
+        actual_model_name = model_name
+    
+    # Handle different model providers
+    if model_name.startswith("gpt") or model_name in O_MODEL_MAPPING:
+        return ask_openai(prompt, actual_model_name, stream)
+    elif model_name.startswith("claude"):
+        return ask_anthropic(prompt, actual_model_name, stream)
+    elif model_name.startswith("gemini"):
+        return ask_gemini(prompt, actual_model_name, stream)
+    else:
+        raise ValueError(f"Unsupported model: {model_name}")
+
+def ask_openai(prompt, model_name, stream):
+    """Call the OpenAI API."""
+    response = openai_client.chat.completions.create(
         model=model_name,
         messages=[{"role": "system", "content": prompt}],
         stream=stream
     )
 
     if stream:
-        print("\n🤖 AI Response (Streaming)...\n")
+        print(f"\n🤖 AI Response (Streaming with {model_name})...\n")
         response_text = ""
         for chunk in response:
             text = chunk.choices[0].delta.content or ""
@@ -86,6 +141,80 @@ def ask_ai(prompt, model_name="gpt-4", stream=True):
         return response_text.strip()
     else:
         return response.choices[0].message.content.strip()
+
+def ask_anthropic(prompt, model_name, stream):
+    """Call the Anthropic API for Claude models."""
+    try:
+        import anthropic
+    except ImportError:
+        print("The 'anthropic' package is required for Claude models. Installing...")
+        import subprocess
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "anthropic"])
+        import anthropic
+    
+    # Initialize Anthropic client
+    anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    
+    if stream:
+        print(f"\n🤖 AI Response (Streaming with {model_name})...\n")
+        response_text = ""
+        with anthropic_client.messages.stream(
+            model=model_name,
+            system=prompt,
+            max_tokens=4000
+        ) as stream:
+            for text in stream.text_stream:
+                print(text, end="", flush=True)
+                response_text += text
+        print("\n")
+        return response_text.strip()
+    else:
+        response = anthropic_client.messages.create(
+            model=model_name,
+            system=prompt,
+            max_tokens=4000
+        )
+        return response.content[0].text.strip()
+
+def ask_gemini(prompt, model_name, stream):
+    """Call the Google Generative AI API for Gemini models."""
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        print("The 'google-generativeai' package is required for Gemini models. Installing...")
+        import subprocess
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai"])
+        import google.generativeai as genai
+    
+    # Configure the Gemini API
+    genai.configure(api_key=GOOGLE_API_KEY)
+    
+    # Create a model instance
+    model = genai.GenerativeModel(model_name)
+    
+    if stream:
+        print(f"\n🤖 AI Response (Streaming with {model_name})...\n")
+        response_text = ""
+        
+        # Stream the response
+        for chunk in model.generate_content(
+            prompt,
+            stream=True,
+            generation_config={"temperature": 0.7, "max_output_tokens": 4000}
+        ):
+            text = chunk.text
+            print(text, end="", flush=True)
+            response_text += text
+        
+        print("\n")
+        return response_text.strip()
+    else:
+        # Get the full response at once
+        response = model.generate_content(
+            prompt,
+            generation_config={"temperature": 0.7, "max_output_tokens": 4000}
+        )
+        return response.text.strip()
 
 def ask_user(question):
     """Prompt user for input and return response."""
