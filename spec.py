@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from datetime import datetime
+import sys
 
 import openai
 from dotenv import load_dotenv
@@ -18,6 +19,9 @@ args = parser.parse_args()
 # Configure logging with command line argument
 logging.basicConfig(level=getattr(logging, args.log_level))
 
+# Suppress httpx logs (used by OpenAI client)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -32,59 +36,23 @@ if not OPENAI_API_KEY:
 # Initialize the OpenAI client
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
-# AI prompt templates
-AI_INITIAL_PROMPT = """
-You are an AI that helps users write product specifications. Given a brief product description, generate an initial structured product specification with these sections:
-- **Product Name**
-- **Objective**
-- **Features**
-- **Technical Specifications**
-- **User Scenarios**
+def load_prompt(prompt_file):
+    """Load a prompt from a file in the prompts directory."""
+    prompt_path = os.path.join("prompts", prompt_file)
+    try:
+        with open(prompt_path, "r") as f:
+            return f.read().strip()
+    except IOError as e:
+        raise ValueError(f"Failed to load prompt file {prompt_file}: {str(e)}")
 
-Ensure the format is clean and structured, with placeholders for missing information.
-"""
-
-AI_REFINEMENT_PROMPT = """
-You are a JSON-focused AI assistant. Your task is to analyze this product specification and generate follow-up questions.
-
-Here is the current product specification:
-{spec}
-
-You must respond with a JSON array of questions, following this exact format:
-[
-    {{
-        "section": "Section Name",
-        "question": "Your specific question about this section"
-    }}
-]
-
-Requirements:
-1. Response MUST be valid JSON
-2. Response must ONLY contain the JSON array, no additional text
-3. Each object in the array MUST have exactly two fields: "section" and "question"
-4. Questions should be specific and actionable
-5. Prioritize the most important questions first
-6. Maximum 3 questions at a time
-
-Example of valid response:
-[
-    {{
-        "section": "Technical Architecture",
-        "question": "What specific database technology will be used for storing user profiles?"
-    }},
-    {{
-        "section": "Security",
-        "question": "What authentication method will be implemented for user login?"
-    }}
-]
-"""
-
-AI_FINAL_REFINEMENT_PROMPT = """
-Here is the current product specification:
-{spec}
-
-Now, using the provided responses, generate the final, well-structured specification.
-"""
+# Load prompts from files
+try:
+    AI_INITIAL_PROMPT = load_prompt("initial.txt")
+    AI_REFINEMENT_PROMPT = load_prompt("refinement.txt")
+    AI_FINAL_REFINEMENT_PROMPT = load_prompt("final_refinement.txt")
+except ValueError as e:
+    print(f"Error loading prompts: {str(e)}")
+    sys.exit(1)
 
 def ask_ai(prompt, model_name="gpt-4", stream=True):
     """
@@ -132,9 +100,21 @@ def generate_initial_spec(description):
 
 def refine_spec(spec):
     """Iteratively refine the product specification, asking questions one at a time."""
+    # Track answered questions and their responses
+    answered_questions = []
+    
     while True:
         print("\n🔍 AI is identifying missing sections...")
-        refinement_prompt = AI_REFINEMENT_PROMPT.format(spec=spec)
+        # Format answered questions for the prompt
+        answered_questions_text = "\n".join([
+            f"Section: {q['section']}\nQuestion: {q['question']}\nAnswer: {q['answer']}"
+            for q in answered_questions
+        ]) if answered_questions else "No questions answered yet."
+        
+        refinement_prompt = AI_REFINEMENT_PROMPT.format(
+            spec=spec,
+            answered_questions=answered_questions_text
+        )
         follow_up_questions = ask_ai(refinement_prompt, stream=False)  # No streaming for structured data
 
         try:
@@ -184,6 +164,13 @@ def refine_spec(spec):
             if user_input.lower() == "skip":
                 print("⏭️ Skipping this question.")
                 continue  # Move to the next question
+
+            # Store the answered question and response
+            answered_questions.append({
+                "section": section,
+                "question": question,
+                "answer": user_input
+            })
 
             # Update the spec with user's response
             spec += f"\n\n**{section}:** {question}\n{user_input}"

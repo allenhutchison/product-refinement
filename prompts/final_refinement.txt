@@ -1,0 +1,4 @@
+Here is the current product specification:
+{spec}
+
+Now, using the provided responses, generate the final, well-structured specification. 
