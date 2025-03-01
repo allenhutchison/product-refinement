@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from datetime import datetime
+from typing import Dict, List, Optional, Tuple, Any, Union
 import sys
 
 import llm
@@ -29,15 +30,15 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 load_dotenv()
 
 # Use model from command line arguments
-MODEL_NAME = args.model
+MODEL_NAME: str = args.model
 
-def ask_ai(prompt, model_name=None, stream=True):
+def ask_ai(prompt: str, model_name: Optional[str] = None, stream: bool = True) -> str:
     """
     Calls the AI model using the llm library.
 
     Args:
         prompt (str): The input prompt to the AI model.
-        model_name (str): The name of the model to use. If None, uses the global MODEL_NAME.
+        model_name (str, optional): The name of the model to use. If None, uses the global MODEL_NAME.
         stream (bool): Whether to stream the response.
 
     Returns:
@@ -54,7 +55,7 @@ def ask_ai(prompt, model_name=None, stream=True):
     
     if stream:
         print(f"\n🤖 AI Response (Streaming with {model_name})...\n")
-        response_text = ""
+        response_text: str = ""
         # Stream the response as it's generated
         for chunk in response:
             print(chunk, end="", flush=True)
@@ -63,13 +64,24 @@ def ask_ai(prompt, model_name=None, stream=True):
         return response_text.strip()
     else:
         print(f"\n🤖 AI Response (Using {model_name})...\n")
-        response_text = response.text()
+        response_text: str = response.text()
         print(response_text)
         print("\n")
         return response_text.strip()
 
-def load_prompt(prompt_file):
-    """Load a prompt from a file in the prompts directory."""
+def load_prompt(prompt_file: str) -> str:
+    """
+    Load a prompt from a file in the prompts directory.
+    
+    Args:
+        prompt_file (str): Name of the prompt file to load
+        
+    Returns:
+        str: Content of the prompt file
+        
+    Raises:
+        ValueError: If the prompt file cannot be loaded
+    """
     prompt_path = os.path.join("prompts", prompt_file)
     try:
         with open(prompt_path, "r") as f:
@@ -77,7 +89,7 @@ def load_prompt(prompt_file):
     except IOError as e:
         raise ValueError(f"Failed to load prompt file {prompt_file}: {str(e)}")
 
-def ask_user(prompt):
+def ask_user(prompt: str) -> str:
     """
     Ask the user for input with a formatted prompt.
     
@@ -92,23 +104,39 @@ def ask_user(prompt):
 
 # Load prompts from files
 try:
-    AI_INITIAL_PROMPT = load_prompt("initial.txt")
-    AI_REFINEMENT_PROMPT = load_prompt("refinement.txt")
-    AI_FINAL_REFINEMENT_PROMPT = load_prompt("final_refinement.txt")
+    AI_INITIAL_PROMPT: str = load_prompt("initial.txt")
+    AI_REFINEMENT_PROMPT: str = load_prompt("refinement.txt")
+    AI_FINAL_REFINEMENT_PROMPT: str = load_prompt("final_refinement.txt")
 except ValueError as e:
     print(f"Error loading prompts: {str(e)}")
     sys.exit(1)
 
-def generate_initial_spec(description):
-    """Generate an initial product specification using AI."""
+def generate_initial_spec(description: str) -> str:
+    """
+    Generate an initial product specification using AI.
+    
+    Args:
+        description (str): Brief description of the product
+        
+    Returns:
+        str: Initial product specification
+    """
     print("\n🚀 Generating an initial specification draft...")
     prompt = AI_INITIAL_PROMPT + f"\n\nProduct description: {description}"
     return ask_ai(prompt, stream=True)  # Streaming enabled
 
-def refine_spec(spec):
-    """Iteratively refine the product specification, asking questions one at a time."""
+def refine_spec(spec: str) -> str:
+    """
+    Iteratively refine the product specification, asking questions one at a time.
+    
+    Args:
+        spec (str): The initial product specification
+        
+    Returns:
+        str: The refined product specification
+    """
     # Track answered questions and their responses
-    answered_questions = []
+    answered_questions: List[Dict[str, str]] = []
     
     while True:
         print("\n🔍 AI is identifying missing sections...")
@@ -134,7 +162,7 @@ def refine_spec(spec):
             elif "```" in follow_up_questions:
                 follow_up_questions = follow_up_questions.split("```")[1].strip()
 
-            questions = json.loads(follow_up_questions)  # Parse JSON response
+            questions: List[Dict[str, str]] = json.loads(follow_up_questions)  # Parse JSON response
             
             # Validate the structure
             if not isinstance(questions, list):
@@ -186,13 +214,21 @@ def refine_spec(spec):
 
     return spec
 
-def finalize_spec(spec):
-    """Generate the final well-structured product specification using AI."""
+def finalize_spec(spec: str) -> str:
+    """
+    Generate the final well-structured product specification using AI.
+    
+    Args:
+        spec (str): The refined product specification
+        
+    Returns:
+        str: The finalized product specification
+    """
     print("\n📌 Finalizing the specification with AI...")
     final_prompt = AI_FINAL_REFINEMENT_PROMPT.format(spec=spec)
     return ask_ai(final_prompt, stream=True)  # Streaming enabled
 
-def get_project_dir(product_name):
+def get_project_dir(product_name: str) -> str:
     """
     Get the directory path for a project, creating it if it doesn't exist.
     
@@ -208,7 +244,7 @@ def get_project_dir(product_name):
     os.makedirs(project_dir, exist_ok=True)
     return project_dir
 
-def get_next_version(project_dir):
+def get_next_version(project_dir: str) -> int:
     """
     Get the next version number for a project.
     
@@ -228,7 +264,7 @@ def get_next_version(project_dir):
                 continue
     return max(versions) + 1
 
-def format_timestamp(timestamp_str):
+def format_timestamp(timestamp_str: str) -> str:
     """
     Format a timestamp string into a human-readable format.
     
@@ -244,8 +280,14 @@ def format_timestamp(timestamp_str):
     except ValueError:
         return timestamp_str
 
-def save_specification(spec, product_name=None):
-    """Save the specification to files in both Markdown and JSON formats."""
+def save_specification(spec: str, product_name: Optional[str] = None) -> None:
+    """
+    Save the specification to files in both Markdown and JSON formats.
+    
+    Args:
+        spec (str): The product specification text
+        product_name (str, optional): Name of the product
+    """
     if not product_name:
         try:
             product_name = spec.split("Product Name:")[1].split("\n")[0].strip()
@@ -269,7 +311,7 @@ def save_specification(spec, product_name=None):
         f.write(spec_with_metadata)
     
     # Convert to JSON structure
-    spec_dict = {
+    spec_dict: Dict[str, Union[int, str]] = {
         "version": version,
         "timestamp": timestamp,
         "formatted_timestamp": formatted_timestamp,
@@ -287,18 +329,24 @@ def save_specification(spec, product_name=None):
     print(f"   - JSON: {json_filename}")
     print(f"   - Last Updated: {formatted_timestamp}")
 
-def list_specifications():
-    """List all available specifications grouped by project."""
+def list_specifications() -> Dict[str, List[Tuple[str, int, str, str, str]]]:
+    """
+    List all available specifications grouped by project.
+    
+    Returns:
+        Dict mapping project directories to lists of specification tuples.
+        Each tuple contains (filename, version, timestamp, formatted_timestamp, product_name)
+    """
     if not os.path.exists("specs"):
         return {}
     
-    projects = {}
+    projects: Dict[str, List[Tuple[str, int, str, str, str]]] = {}
     for project_dir in os.listdir("specs"):
         project_path = os.path.join("specs", project_dir)
         if not os.path.isdir(project_path):
             continue
         
-        specs = []
+        specs: List[Tuple[str, int, str, str, str]] = []
         for filename in os.listdir(project_path):
             if filename.endswith(".json"):
                 filepath = os.path.join(project_path, filename)
@@ -321,7 +369,7 @@ def list_specifications():
     
     return projects
 
-def load_specification(filename):
+def load_specification(filename: str) -> Tuple[Optional[str], Optional[str]]:
     """
     Load a specification from a JSON file.
     
@@ -329,7 +377,7 @@ def load_specification(filename):
         filename (str): Name of the JSON file to load
         
     Returns:
-        tuple: (specification_text, project_name)
+        tuple: (specification_text, project_name) or (None, None) if loading fails
     """
     filepath = os.path.join("specs", filename)
     try:
@@ -340,8 +388,15 @@ def load_specification(filename):
         print(f"Error loading specification: {e}")
         return None, None
 
-def choose_specification():
-    """Allow user to choose between creating a new specification or loading an existing one."""
+def choose_specification() -> Tuple[bool, Optional[Tuple[str, str]]]:
+    """
+    Allow user to choose between creating a new specification or loading an existing one.
+    
+    Returns:
+        tuple: (is_new, loaded_spec)
+        is_new (bool): True if creating a new spec, False if loading existing
+        loaded_spec (tuple or None): (spec_content, project_name) if loading existing, None otherwise
+    """
     print("\n📝 Welcome to the AI-Powered Product Specification Generator!")
     print("\nWhat would you like to do?")
     print("1. Create a new specification")
@@ -398,8 +453,16 @@ def choose_specification():
         else:
             print("Invalid choice. Please enter 1 or 2.")
 
-def suggest_project_name(spec):
-    """Get an AI suggestion for the project name based on the specification."""
+def suggest_project_name(spec: str) -> str:
+    """
+    Get an AI suggestion for the project name based on the specification.
+    
+    Args:
+        spec (str): The product specification
+        
+    Returns:
+        str: The suggested or user-selected project name
+    """
     prompt = """
     Based on this product specification, suggest a concise, memorable project name.
     Return ONLY the suggested name, nothing else.
@@ -421,8 +484,10 @@ def suggest_project_name(spec):
     return ask_user("Please enter your preferred project name:")
 
 if __name__ == "__main__":
+    is_new: bool
+    loaded_spec: Optional[Tuple[str, str]]
     is_new, loaded_spec = choose_specification()
-    project_name = None
+    project_name: Optional[str] = None
     
     if is_new:
         product_description = ask_user("Describe your product in a few sentences:")
