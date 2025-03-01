@@ -32,7 +32,7 @@ load_dotenv()
 # Use model from command line arguments
 MODEL_NAME: str = args.model
 
-def ask_ai(prompt: str, model_name: Optional[str] = None, stream: bool = True) -> str:
+def ask_ai(prompt: str, model_name: Optional[str] = None, stream: bool = True, show_response: bool = True) -> str:
     """
     Calls the AI model using the llm library.
 
@@ -40,6 +40,7 @@ def ask_ai(prompt: str, model_name: Optional[str] = None, stream: bool = True) -
         prompt (str): The input prompt to the AI model.
         model_name (str, optional): The name of the model to use. If None, uses the global MODEL_NAME.
         stream (bool): Whether to stream the response.
+        show_response (bool): Whether to print the response when not streaming.
 
     Returns:
         str: The full AI-generated response.
@@ -63,10 +64,14 @@ def ask_ai(prompt: str, model_name: Optional[str] = None, stream: bool = True) -
         print("\n")
         return response_text.strip()
     else:
-        print(f"\n🤖 AI Response (Using {model_name})...\n")
-        response_text: str = response.text()
-        print(response_text)
-        print("\n")
+        if show_response:
+            print(f"\n🤖 AI Response (Using {model_name})...\n")
+            response_text: str = response.text()
+            print(response_text)
+            print("\n")
+        else:
+            print(f"\n🤖 Processing AI response (Using {model_name})...\n")
+            response_text: str = response.text()
         return response_text.strip()
 
 def load_prompt(prompt_file: str) -> str:
@@ -150,7 +155,7 @@ def refine_spec(spec: str) -> str:
             spec=spec,
             answered_questions=answered_questions_text
         )
-        follow_up_questions = ask_ai(refinement_prompt, stream=False)  # No streaming for structured data
+        follow_up_questions = ask_ai(refinement_prompt, stream=False, show_response=False)  # No streaming and don't show raw response
 
         try:
             # Add debug logging
@@ -471,7 +476,7 @@ def suggest_project_name(spec: str) -> str:
     {spec}
     """.format(spec=spec)
     
-    suggested_name = ask_ai(prompt, stream=False).strip()
+    suggested_name = ask_ai(prompt, stream=False, show_response=True).strip()
     
     print(f"\n🤖 Suggested project name: {suggested_name}")
     
