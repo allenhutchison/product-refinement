@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 import sys
 
-import openai
+import llm
 from dotenv import load_dotenv
 
 # Add command line argument parsing
@@ -16,23 +16,13 @@ parser.add_argument('--log-level',
                    help='Set the logging level')
 parser.add_argument('--model',
                    default='gpt-4-turbo',
-                   choices=[
-                       # OpenAI models
-                       'gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo',
-                       # OpenAI "o" models
-                       'o1', 'o1-mini', 'o3',
-                       # Anthropic models
-                       'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku',
-                       # Google models
-                       'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'
-                   ],
-                   help='Select the AI model to use')
+                   help='Select the AI model to use (any model supported by llm)')
 args = parser.parse_args()
 
 # Configure logging with command line argument
 logging.basicConfig(level=getattr(logging, args.log_level))
 
-# Suppress httpx logs (used by OpenAI client)
+# Suppress httpx logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Load environment variables from .env file
@@ -41,59 +31,9 @@ load_dotenv()
 # Use model from command line arguments
 MODEL_NAME = args.model
 
-# Get API Keys from environment variables
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-
-# Map "o" models to their full names
-O_MODEL_MAPPING = {
-    "o1": "gpt-4o",
-    "o1-mini": "gpt-4o-mini",
-    "o3": "gpt-4o-2024-05-13",  # Use the specific version identifier
-}
-
-# Check for required API keys based on selected model
-if MODEL_NAME.startswith("gpt") or MODEL_NAME in O_MODEL_MAPPING:
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY environment variable is not set. Please check your .env file.")
-    # Initialize the OpenAI client
-    openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
-elif MODEL_NAME.startswith("claude"):
-    if not ANTHROPIC_API_KEY:
-        raise ValueError("ANTHROPIC_API_KEY environment variable is not set. Please check your .env file.")
-    # For Claude models, we'll use the Anthropic API directly in the ask_ai function
-elif MODEL_NAME.startswith("gemini"):
-    if not GOOGLE_API_KEY:
-        raise ValueError("GOOGLE_API_KEY environment variable is not set. Please check your .env file.")
-    # For Gemini models, we'll use the Google API directly in the ask_ai function
-else:
-    raise ValueError(f"Unsupported model: {MODEL_NAME}")
-
-def load_prompt(prompt_file):
-    """Load a prompt from a file in the prompts directory."""
-    prompt_path = os.path.join("prompts", prompt_file)
-    try:
-        with open(prompt_path, "r") as f:
-            return f.read().strip()
-    except IOError as e:
-        raise ValueError(f"Failed to load prompt file {prompt_file}: {str(e)}")
-
-# Load prompts from files
-try:
-    AI_INITIAL_PROMPT = load_prompt("initial.txt")
-    AI_REFINEMENT_PROMPT = load_prompt("refinement.txt")
-    AI_FINAL_REFINEMENT_PROMPT = load_prompt("final_refinement.txt")
-except ValueError as e:
-    print(f"Error loading prompts: {str(e)}")
-    sys.exit(1)
-
 def ask_ai(prompt, model_name=None, stream=True):
     """
-    Calls the AI API to interact with an AI model.
-
-    - If `stream=True`, prints the response as it arrives.
-    - Otherwise, waits for the full response.
+    Calls the AI model using the llm library.
 
     Args:
         prompt (str): The input prompt to the AI model.
@@ -106,120 +46,58 @@ def ask_ai(prompt, model_name=None, stream=True):
     if model_name is None:
         model_name = MODEL_NAME
     
-    # Map "o" models to their full names if needed
-    if model_name in O_MODEL_MAPPING:
-        actual_model_name = O_MODEL_MAPPING[model_name]
-    else:
-        actual_model_name = model_name
+    # Get the model
+    model = llm.get_model(model_name)
     
-    # Handle different model providers
-    if model_name.startswith("gpt") or model_name in O_MODEL_MAPPING:
-        return ask_openai(prompt, actual_model_name, stream)
-    elif model_name.startswith("claude"):
-        return ask_anthropic(prompt, actual_model_name, stream)
-    elif model_name.startswith("gemini"):
-        return ask_gemini(prompt, actual_model_name, stream)
-    else:
-        raise ValueError(f"Unsupported model: {model_name}")
-
-def ask_openai(prompt, model_name, stream):
-    """Call the OpenAI API."""
-    response = openai_client.chat.completions.create(
-        model=model_name,
-        messages=[{"role": "system", "content": prompt}],
-        stream=stream
-    )
-
+    # Generate the response
+    response = model.prompt(prompt)
+    
     if stream:
         print(f"\n🤖 AI Response (Streaming with {model_name})...\n")
         response_text = ""
+        # Stream the response as it's generated
         for chunk in response:
-            text = chunk.choices[0].delta.content or ""
-            print(text, end="", flush=True)  # Print each chunk in real-time
-            response_text += text  # Append to the full response
-        print("\n")  # Ensure we move to a new line after streaming
-        return response_text.strip()
-    else:
-        return response.choices[0].message.content.strip()
-
-def ask_anthropic(prompt, model_name, stream):
-    """Call the Anthropic API for Claude models."""
-    try:
-        import anthropic
-    except ImportError:
-        print("The 'anthropic' package is required for Claude models. Installing...")
-        import subprocess
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "anthropic"])
-        import anthropic
-    
-    # Initialize Anthropic client
-    anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    
-    if stream:
-        print(f"\n🤖 AI Response (Streaming with {model_name})...\n")
-        response_text = ""
-        with anthropic_client.messages.stream(
-            model=model_name,
-            system=prompt,
-            max_tokens=4000
-        ) as stream:
-            for text in stream.text_stream:
-                print(text, end="", flush=True)
-                response_text += text
+            print(chunk, end="", flush=True)
+            response_text += chunk
         print("\n")
         return response_text.strip()
     else:
-        response = anthropic_client.messages.create(
-            model=model_name,
-            system=prompt,
-            max_tokens=4000
-        )
-        return response.content[0].text.strip()
-
-def ask_gemini(prompt, model_name, stream):
-    """Call the Google Generative AI API for Gemini models."""
-    try:
-        import google.generativeai as genai
-    except ImportError:
-        print("The 'google-generativeai' package is required for Gemini models. Installing...")
-        import subprocess
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai"])
-        import google.generativeai as genai
-    
-    # Configure the Gemini API
-    genai.configure(api_key=GOOGLE_API_KEY)
-    
-    # Create a model instance
-    model = genai.GenerativeModel(model_name)
-    
-    if stream:
-        print(f"\n🤖 AI Response (Streaming with {model_name})...\n")
-        response_text = ""
-        
-        # Stream the response
-        for chunk in model.generate_content(
-            prompt,
-            stream=True,
-            generation_config={"temperature": 0.7, "max_output_tokens": 4000}
-        ):
-            text = chunk.text
-            print(text, end="", flush=True)
-            response_text += text
-        
+        print(f"\n🤖 AI Response (Using {model_name})...\n")
+        response_text = response.text()
+        print(response_text)
         print("\n")
         return response_text.strip()
-    else:
-        # Get the full response at once
-        response = model.generate_content(
-            prompt,
-            generation_config={"temperature": 0.7, "max_output_tokens": 4000}
-        )
-        return response.text.strip()
 
-def ask_user(question):
-    """Prompt user for input and return response."""
-    response = input(f"\n{question}\n> ")
-    return response.strip()
+def load_prompt(prompt_file):
+    """Load a prompt from a file in the prompts directory."""
+    prompt_path = os.path.join("prompts", prompt_file)
+    try:
+        with open(prompt_path, "r") as f:
+            return f.read().strip()
+    except IOError as e:
+        raise ValueError(f"Failed to load prompt file {prompt_file}: {str(e)}")
+
+def ask_user(prompt):
+    """
+    Ask the user for input with a formatted prompt.
+    
+    Args:
+        prompt (str): The prompt to display to the user
+        
+    Returns:
+        str: The user's input
+    """
+    print(f"\n❓ {prompt}")
+    return input("> ").strip()
+
+# Load prompts from files
+try:
+    AI_INITIAL_PROMPT = load_prompt("initial.txt")
+    AI_REFINEMENT_PROMPT = load_prompt("refinement.txt")
+    AI_FINAL_REFINEMENT_PROMPT = load_prompt("final_refinement.txt")
+except ValueError as e:
+    print(f"Error loading prompts: {str(e)}")
+    sys.exit(1)
 
 def generate_initial_spec(description):
     """Generate an initial product specification using AI."""
