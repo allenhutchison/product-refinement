@@ -10,7 +10,8 @@ license = "MIT"
 readme = "README.md"
 dependencies = [
     "llm>=0.13.0",
-    "python-dotenv>=1.0.0"  # Optional: For managing API keys securely
+    "python-dotenv>=1.0.0",  # Optional: For managing API keys securely
+    "rich>=13.0.0"  # For enhanced terminal output and user interface
 ]
 
 [build-system]
@@ -23,7 +24,8 @@ packages = ["src/ai_spec_generator"]
 [tool.uv]
 packages = [
     "llm>=0.13.0",
-    "python-dotenv>=1.0.0"
+    "python-dotenv>=1.0.0",
+    "rich>=13.0.0"
 ]
 
 [tool.uv.scripts]
