@@ -16,7 +16,7 @@ parser.add_argument('--log-level',
                    choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                    help='Set the logging level')
 parser.add_argument('--model',
-                   default='gpt-4-turbo',
+                   default='gemini-2.0-flash',
                    help='Select the AI model to use (any model supported by llm)')
 args = parser.parse_args()
 
