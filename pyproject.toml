@@ -1,32 +1,41 @@
-[project]
-name = "ai-spec-generator"
-version = "0.1.0"
-requires-python = ">=3.9"
-description = "An AI-powered tool for generating and refining product specifications using the LLM library."
-authors = [
-    {name = "Allen Hutchison", email = "allen@hutchison.org"}
-]
-license = "MIT"
-readme = "README.md"
-dependencies = [
-    "llm>=0.13.0",
-    "python-dotenv>=1.0.0",  # Optional: For managing API keys securely
-    "rich>=13.0.0"  # For enhanced terminal output and user interface
-]
-
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/ai_spec_generator"]
-
-[tool.uv]
-packages = [
-    "llm>=0.13.0",
-    "python-dotenv>=1.0.0",
-    "rich>=13.0.0"
+[project]
+name = "product-refinement"
+version = "0.1.0"
+description = "A tool for generating and refining product specifications using AI"
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
 ]
+dependencies = [
+    "click>=8.0.0",
+    "rich>=10.0.0",
+    "llm>=0.12.0",
+]
+requires-python = ">=3.8"
+readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Documentation",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+scripts = { refine = "product_refinement.__main__:cli" }
 
-[tool.uv.scripts]
-start = "python spec.py"
+[project.urls]
+Homepage = "https://github.com/yourusername/product-refinement"
+Repository = "https://github.com/yourusername/product-refinement.git"
+
+[tool.setuptools]
+packages = ["product_refinement"]
+
+[tool.setuptools.package-data]
+product_refinement = ["prompts/*.txt"]

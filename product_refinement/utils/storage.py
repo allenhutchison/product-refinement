@@ -14,7 +14,9 @@ class SpecificationManager:
     def __init__(self, config: Config):
         """Initialize the specification manager."""
         self.config = config
+        # Create specs directory if it doesn't exist
         os.makedirs(self.config.SPECS_DIR, exist_ok=True)
+        logging.info(f"Specifications will be saved in: {self.config.SPECS_DIR}")
     
     def _get_spec_path(self, project_name: str) -> str:
         """
@@ -32,6 +34,7 @@ class SpecificationManager:
             project_name.lower().replace(' ', '_')
         )
         os.makedirs(project_dir, exist_ok=True)
+        logging.debug(f"Created project directory: {project_dir}")
         
         # Get existing versions
         existing_files = [
@@ -55,7 +58,9 @@ class SpecificationManager:
         formatted_timestamp = timestamp.strftime('%Y%m%d_%H%M%S')
         filename = f"{project_name.lower().replace(' ', '_')}_v{version}.json"
         
-        return os.path.join(project_dir, filename)
+        spec_path = os.path.join(project_dir, filename)
+        logging.debug(f"Generated specification path: {spec_path}")
+        return spec_path
     
     def save_specification(self, project_name: str, specification: str) -> None:
         """

@@ -27,6 +27,9 @@ console = Console()
 
 def initialize_logging(config: Config) -> None:
     """Initialize logging configuration."""
+    # Create log directory if it doesn't exist
+    os.makedirs(config.LOG_DIR, exist_ok=True)
+    
     logging.basicConfig(
         level=config.LOG_LEVEL,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
