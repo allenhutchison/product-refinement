@@ -7,6 +7,7 @@ A command-line tool for generating and refining product specifications using AI.
 - Generate initial product specifications from brief descriptions
 - Refine specifications through AI-guided questions
 - Save and manage multiple versions of specifications
+- Generate engineering todo lists from specifications
 - Beautiful command-line interface with progress indicators
 - Markdown formatting for better readability
 - Caching of AI responses for better performance
@@ -16,7 +17,7 @@ A command-line tool for generating and refining product specifications using AI.
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/product-refinement.git
+git clone https://github.com/allenhutchison/product-refinement.git
 cd product-refinement
 ```
 
@@ -57,6 +58,19 @@ refine edit <spec-path>
 
 Opens an existing specification for further refinement.
 
+### Generate Engineering Todo List
+
+```bash
+refine todo <spec-path>
+```
+
+Generates a detailed engineering todo list from an existing specification, including:
+- Tasks organized by section (Architecture, Core Features, Infrastructure, etc.)
+- Complexity estimates for each task
+- Dependencies between tasks
+- Technical notes and testing requirements
+- Option to save the todo list as a JSON file
+
 ### Command Line Options
 
 - `--model`: Specify which AI model to use
@@ -64,14 +78,14 @@ Opens an existing specification for further refinement.
 
 Example:
 ```bash
-refine --model gpt-4 --log-level DEBUG create
+refine --model gemini-pro --log-level DEBUG create
 ```
 
 ## Configuration
 
 The tool uses the following configuration settings:
 
-- `MODEL_NAME`: The AI model to use (default: gpt-4)
+- `MODEL_NAME`: The AI model to use (default: gemini-2.0-flash)
 - `LOG_LEVEL`: Logging level (default: INFO)
 - `CACHE_DIR`: Directory for caching AI responses
 - `LOG_DIR`: Directory for log files
@@ -82,26 +96,28 @@ The tool uses the following configuration settings:
 ## Project Structure
 
 ```
-product_refinement/
-├── __init__.py
-├── __main__.py
-├── ai/
-│   ├── __init__.py
-│   └── service.py
-├── cli/
-│   ├── __init__.py
-│   └── commands.py
-├── prompts/
-│   ├── initial.txt
-│   ├── refinement.txt
-│   └── final_refinement.txt
-└── utils/
+src/
+└── product_refinement/
     ├── __init__.py
-    ├── config.py
-    ├── display.py
-    ├── storage.py
-    ├── types.py
-    └── validation.py
+    ├── __main__.py
+    ├── ai/
+    │   ├── __init__.py
+    │   └── service.py
+    ├── cli/
+    │   ├── __init__.py
+    │   └── commands.py
+    ├── prompts/
+    │   ├── initial.txt
+    │   ├── refinement.txt
+    │   ├── final_refinement.txt
+    │   └── todo.txt
+    └── utils/
+        ├── __init__.py
+        ├── config.py
+        ├── display.py
+        ├── storage.py
+        ├── types.py
+        └── validation.py
 ```
 
 ## Development
