@@ -121,19 +121,19 @@ class SpecificationManager:
                         with open(file_path, 'r') as f:
                             spec_data = json.load(f)
                             
-                        spec_files.append(SpecificationVersion(
-                            filename=filename,
-                            version=spec_data['version'],
-                            timestamp=spec_data['timestamp'],
-                            formatted_timestamp=spec_data['formatted_timestamp'],
-                            product_name=spec_data['product_name']
-                        ))
+                        spec_files.append({
+                            'filename': filename,
+                            'version': spec_data['version'],
+                            'timestamp': spec_data['timestamp'],
+                            'formatted_timestamp': spec_data['formatted_timestamp'],
+                            'product_name': spec_data['product_name']
+                        })
                     except (json.JSONDecodeError, KeyError) as e:
                         logging.warning(f"Failed to read specification {file_path}: {e}")
                 
                 if spec_files:
                     # Sort by version number
-                    spec_files.sort(key=lambda x: x.version)
+                    spec_files.sort(key=lambda x: x['version'])
                     specs[project_dir] = spec_files
                     
         except Exception as e:

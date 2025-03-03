@@ -14,14 +14,14 @@ class SpecificationVersion(TypedDict):
     """Represents a version of a specification."""
     filename: str
     version: int
-    timestamp: str
+    timestamp: float
     formatted_timestamp: str
     product_name: str
 
 class SpecificationData(TypedDict):
     """Represents the data structure of a specification JSON file."""
     version: int
-    timestamp: str
+    timestamp: float
     formatted_timestamp: str
     product_name: str
     specification: str 

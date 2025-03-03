@@ -167,27 +167,79 @@ def list_specs(config: Config) -> None:
             console.print(f"\n📁 {project_dir}")
             for version in versions:
                 console.print(
-                    f"  └─ {version.formatted_timestamp} - "
-                    f"v{version.version} - {version.filename}"
+                    f"  └─ {version['formatted_timestamp']} - "
+                    f"v{version['version']} - {version['filename']}"
                 )
     except Exception as e:
         display_error(f"Failed to list specifications: {str(e)}")
 
-def edit_spec(config: Config, spec_path: str) -> None:
+def edit_spec(config: Config, spec_path: Optional[str] = None) -> None:
     """Edit an existing specification."""
     display_banner("Edit Specification")
     
     try:
         spec_manager = SpecificationManager(config)
-        spec_data = spec_manager.load_specification(spec_path)
+        specs = spec_manager.list_specifications()
         
+        if not specs:
+            display_info("No specifications found.")
+            return
+        
+        # If no spec_path provided, show selection menu
+        if not spec_path:
+            # Create a flat list of all specifications with their paths
+            all_specs = []
+            for project_dir, versions in specs.items():
+                for version in versions:
+                    all_specs.append({
+                        'path': os.path.join(project_dir, version['filename']),
+                        'project': project_dir,
+                        'version': version
+                    })
+            
+            if not all_specs:
+                display_info("No specifications found.")
+                return
+            
+            # Display numbered list of specifications
+            console.print("\nAvailable specifications:")
+            for i, spec in enumerate(all_specs, 1):
+                console.print(
+                    f"{i}. {spec['project']} - "
+                    f"v{spec['version']['version']} "
+                    f"({spec['version']['formatted_timestamp']})"
+                )
+            
+            # Get user selection
+            while True:
+                try:
+                    selection = ask_user("\nEnter the number of the specification to edit (or 'q' to quit):")
+                    if selection.lower() == 'q':
+                        return
+                    
+                    index = int(selection) - 1
+                    if 0 <= index < len(all_specs):
+                        spec_path = all_specs[index]['path']
+                        break
+                    else:
+                        display_error("Invalid selection. Please try again.")
+                except ValueError:
+                    display_error("Please enter a valid number.")
+        
+        # Load and display the specification
+        spec_data = spec_manager.load_specification(spec_path)
         if not spec_data:
             display_error(f"Specification not found: {spec_path}")
             return
         
-        # Display current specification
+        # Show preview
         console.print("\n📝 Current Specification:")
         console.print(format_spec_as_markdown(spec_data['specification']))
+        
+        # Ask for confirmation
+        if not ask_user("\nWould you like to edit this specification? (yes/no)").lower().startswith('y'):
+            display_info("Edit cancelled.")
+            return
         
         # Initialize AI service
         ai_service = AIService(config)
@@ -253,13 +305,23 @@ def edit_spec(config: Config, spec_path: str) -> None:
             # Display updated specification
             console.print("\n📝 Updated Specification:")
             console.print(format_spec_as_markdown(spec))
+            
+            # Ask if user wants to continue
+            if not ask_user("\nWould you like to continue refining? (yes/no)").lower().startswith('y'):
+                break
         
-        # Save updated specification
-        try:
-            spec_manager.save_specification(spec_data['product_name'], spec)
-            display_success(f"\n✅ Specification updated successfully")
-        except Exception as e:
-            display_error(f"Failed to save specification: {str(e)}")
+        # Show final preview and ask for confirmation
+        console.print("\n📝 Final Specification:")
+        console.print(format_spec_as_markdown(spec))
+        
+        if ask_user("\nWould you like to save these changes? (yes/no)").lower().startswith('y'):
+            try:
+                spec_manager.save_specification(spec_data['product_name'], spec)
+                display_success(f"\n✅ Specification updated successfully")
+            except Exception as e:
+                display_error(f"Failed to save specification: {str(e)}")
+        else:
+            display_info("Changes not saved.")
             
     except Exception as e:
         display_error(f"Failed to edit specification: {str(e)}")
@@ -298,9 +360,9 @@ def list(config: Config) -> None:
     list_specs(config)
 
 @cli.command()
-@click.argument('spec_path')
+@click.argument('spec_path', required=False)
 @click.pass_obj
-def edit(config: Config, spec_path: str) -> None:
+def edit(config: Config, spec_path: Optional[str]) -> None:
     """Edit an existing specification."""
     edit_spec(config, spec_path)
 
