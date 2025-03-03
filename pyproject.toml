@@ -35,6 +35,7 @@ Homepage = "https://github.com/yourusername/product-refinement"
 Repository = "https://github.com/yourusername/product-refinement.git"
 
 [tool.setuptools]
+package-dir = { "" = "src" }
 packages = ["product_refinement"]
 
 [tool.setuptools.package-data]

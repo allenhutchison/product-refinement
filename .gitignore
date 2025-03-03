@@ -24,6 +24,7 @@ wheels/
 venv/
 ENV/
 env/
+.venv/
 .env
 
 # IDE
@@ -40,6 +41,29 @@ logs/
 # Cache
 .cache/
 .pytest_cache/
+.uv/
+
+# Build artifacts
+*.egg-info/
+build/
+dist/
+*.pyc
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
 
 # Project-specific
 specs/
+prompts/
