@@ -33,6 +33,7 @@ class AIService:
             self.initial_prompt = self._load_prompt_file("initial.txt")
             self.refinement_prompt = self._load_prompt_file("refinement.txt")
             self.final_refinement_prompt = self._load_prompt_file("final_refinement.txt")
+            self.todo_prompt = self._load_prompt_file("todo.txt")
         except ValueError as e:
             logging.error(f"Error loading prompts: {str(e)}")
             sys.exit(1)
@@ -192,8 +193,24 @@ class AIService:
                 print("\n")
                 return response_text.strip()
             else:
+                # For non-streaming responses, ensure we get the complete response
                 response = model.prompt(prompt)
                 response_text = response.text()
+                
+                # Log the raw response for debugging
+                logging.debug(f"Raw model response: {response_text}")
+                
+                # Clean up the response
+                response_text = response_text.strip()
+                
+                # For JSON responses, ensure we have complete JSON
+                if response_text.startswith("{"):
+                    # Find the last closing brace
+                    last_brace = response_text.rfind("}")
+                    if last_brace != -1:
+                        response_text = response_text[:last_brace + 1]
+                    else:
+                        logging.warning("Response appears to be JSON but is incomplete")
                 
                 if show_response:
                     print(f"\n🤖 AI Response (Using {self.config.MODEL_NAME})...")
@@ -202,7 +219,7 @@ class AIService:
                 else:
                     print(f"\n🤖 Processing AI response (Using {self.config.MODEL_NAME})...")
                 
-                return response_text.strip()
+                return response_text
                 
         except Exception as e:
             logging.error(f"Error calling AI model: {str(e)}")
@@ -373,4 +390,160 @@ class AIService:
             print(f"\n⚠️ {response}")
             return "untitled_project"
         
-        return response.strip() 
+        return response.strip()
+
+    @cached_ai_call
+    def generate_todo_list(self, spec: str) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Generate an engineering todo list from a specification.
+        
+        Args:
+            spec (str): The product specification
+            
+        Returns:
+            Dict[str, List[Dict[str, Any]]]: The generated todo list with tasks
+        """
+        # Use a direct approach instead of trying to get valid JSON from the model
+        # Define sections we want to generate tasks for
+        sections = [
+            "Architecture", 
+            "Core Features", 
+            "Infrastructure", 
+            "Testing", 
+            "Documentation",
+            "Security",
+            "Performance"
+        ]
+        
+        tasks = []
+        
+        # Generate tasks for each section separately
+        for section in sections:
+            prompt = f"""
+            You are a technical lead creating an engineering todo list for a product.
+            For the '{section}' section only, create 2-3 focused tasks based on this specification:
+            
+            {spec}
+            
+            For each task, provide:
+            1. A brief title (one line)
+            2. Complexity (Low/Medium/High)
+            3. Dependencies (if any)
+            4. A detailed description (2-3 sentences)
+            5. Technical notes (1-2 sentences)
+            6. Testing notes (1-2 sentences)
+            
+            Format your response as a clean simple list with clear sections. Do not include any explanations or formatting beyond the task details.
+            """
+            
+            response = self.ask(prompt, stream=False, show_response=False)
+            
+            if response.startswith("ERROR:"):
+                logging.error(f"Error generating tasks for section {section}: {response}")
+                continue
+                
+            # Parse the response into task objects manually
+            task_blocks = self._parse_tasks_from_text(response, section)
+            tasks.extend(task_blocks)
+            
+        return {"tasks": tasks}
+        
+    def _parse_tasks_from_text(self, text: str, section: str) -> List[Dict[str, Any]]:
+        """
+        Parse tasks from the AI-generated text.
+        
+        Args:
+            text (str): The AI-generated text
+            section (str): The section these tasks belong to
+            
+        Returns:
+            List[Dict[str, Any]]: List of parsed tasks
+        """
+        tasks = []
+        
+        # Split text by double newlines to separate tasks
+        blocks = text.split("\n\n")
+        
+        current_task = {"section": section}
+        
+        for block in blocks:
+            block = block.strip()
+            if not block:
+                continue
+                
+            # Check if this block is a new task (starts with a number or has "Task" in the first line)
+            if block[0].isdigit() or "Task" in block.split("\n")[0]:
+                # If we have a task in progress, save it and start a new one
+                if "title" in current_task:
+                    tasks.append(current_task)
+                current_task = {"section": section}
+                
+                # The first line is the title
+                lines = block.split("\n")
+                title_line = lines[0]
+                # Remove any numbering or "Task:" prefix
+                title = title_line.strip()
+                if ":" in title:
+                    title = title.split(":", 1)[1].strip()
+                elif "." in title and title.split(".", 1)[0].isdigit():
+                    title = title.split(".", 1)[1].strip()
+                    
+                current_task["title"] = title
+                
+                # Process the rest of the lines
+                for line in lines[1:]:
+                    line = line.strip()
+                    if not line:
+                        continue
+                        
+                    # Look for complexity, dependencies, etc.
+                    if "complexity" in line.lower():
+                        complexity = line.split(":", 1)[1].strip() if ":" in line else "Medium"
+                        current_task["complexity"] = complexity
+                    elif "dependencies" in line.lower():
+                        deps = line.split(":", 1)[1].strip() if ":" in line else ""
+                        current_task["dependencies"] = [d.strip() for d in deps.split(",") if d.strip()]
+                    elif "description" in line.lower():
+                        desc = line.split(":", 1)[1].strip() if ":" in line else line
+                        current_task["description"] = desc
+                    elif "technical" in line.lower() and "notes" in line.lower():
+                        tech = line.split(":", 1)[1].strip() if ":" in line else line
+                        current_task["technical_notes"] = tech
+                    elif "testing" in line.lower() and "notes" in line.lower():
+                        test = line.split(":", 1)[1].strip() if ":" in line else line
+                        current_task["testing_notes"] = test
+            elif "title" in current_task:
+                # This is a continuation of a field from the current task
+                if "complexity" in block.lower():
+                    complexity = block.split(":", 1)[1].strip() if ":" in block else "Medium"
+                    current_task["complexity"] = complexity
+                elif "dependencies" in block.lower():
+                    deps = block.split(":", 1)[1].strip() if ":" in block else ""
+                    current_task["dependencies"] = [d.strip() for d in deps.split(",") if d.strip()]
+                elif "description" in block.lower():
+                    desc = block.split(":", 1)[1].strip() if ":" in block else block
+                    current_task["description"] = desc
+                elif "technical" in block.lower() and "notes" in block.lower():
+                    tech = block.split(":", 1)[1].strip() if ":" in block else block
+                    current_task["technical_notes"] = tech
+                elif "testing" in block.lower() and "notes" in block.lower():
+                    test = block.split(":", 1)[1].strip() if ":" in block else block
+                    current_task["testing_notes"] = test
+                else:
+                    # If we can't identify the field, assume it's a description
+                    current_task["description"] = current_task.get("description", "") + "\n" + block
+        
+        # Add the last task if there is one
+        if "title" in current_task:
+            tasks.append(current_task)
+            
+        # Ensure all tasks have the required fields
+        for task in tasks:
+            task.setdefault("title", "Untitled Task")
+            task.setdefault("complexity", "Medium")
+            task.setdefault("dependencies", [])
+            task.setdefault("description", "No description provided.")
+            task.setdefault("technical_notes", "")
+            task.setdefault("testing_notes", "")
+            
+        return tasks 

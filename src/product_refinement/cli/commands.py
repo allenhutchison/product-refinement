@@ -2,6 +2,7 @@
 import logging
 import os
 import sys
+import json
 from typing import Dict, List, Optional
 
 import click
@@ -329,6 +330,155 @@ def edit_spec(config: Config, spec_path: Optional[str] = None) -> None:
     except Exception as e:
         display_error(f"Failed to edit specification: {str(e)}")
 
+def generate_todo(config: Config, spec_path: Optional[str] = None) -> None:
+    """
+    Generate an engineering todo list from a product specification.
+    
+    Args:
+        config (Config): The configuration object
+        spec_path (Optional[str]): Path to the specification file
+    """
+    display_banner("Generate Engineering Todo List")
+    
+    # Define ANSI color codes for console output
+    class COLORS:
+        RESET = "\033[0m"
+        BOLD = "\033[1m"
+        BLUE = "\033[94m"
+        GREEN = "\033[92m"
+        YELLOW = "\033[93m"
+        CYAN = "\033[96m"
+        RED = "\033[91m"
+    
+    # Initialize logging
+    initialize_logging(config)
+    
+    # Initialize spec manager
+    spec_manager = SpecificationManager(config)
+    
+    # Get available specifications
+    specs = spec_manager.list_specifications()
+    
+    if not specs:
+        print("No specifications found. Please create a specification first.")
+        return
+    
+    # If spec_path is not provided, show a list of available specs
+    if not spec_path:
+        # Create a flat list of all specifications with their paths
+        all_specs = []
+        for project_dir, versions in specs.items():
+            for version in versions:
+                # Construct the full path to the specification file
+                full_path = os.path.join(config.SPECS_DIR, project_dir, version['filename'])
+                all_specs.append({
+                    'path': full_path,
+                    'name': os.path.basename(project_dir),
+                    'version': version['version'],
+                    'date': version['formatted_timestamp']
+                })
+        
+        print("\nAvailable specifications:")
+        for i, spec in enumerate(all_specs, 1):
+            print(f"{i}. {spec['name']} - v{spec['version']} ({spec['date']})")
+        
+        # Ask user to select a specification
+        spec_choice = input("\nEnter the number of the specification to generate todo list from (or 'q' to quit):: ")
+        if spec_choice.lower() == 'q':
+            return
+        
+        try:
+            spec_idx = int(spec_choice) - 1
+            if spec_idx < 0 or spec_idx >= len(all_specs):
+                print("Invalid selection.")
+                return
+                
+            selected_spec = all_specs[spec_idx]
+            spec_path = selected_spec['path']
+        except ValueError:
+            print("Invalid selection. Please enter a number.")
+            return
+    else:
+        # If spec_path is provided but doesn't contain the full path, append the config.SPECS_DIR
+        if not os.path.isabs(spec_path) and not os.path.exists(spec_path):
+            potential_path = os.path.join(config.SPECS_DIR, spec_path)
+            if os.path.exists(potential_path):
+                spec_path = potential_path
+    
+    # Validate the provided spec_path
+    if not os.path.exists(spec_path):
+        print(f"Specification file not found: {spec_path}")
+        return
+    
+    # Load the specification
+    try:
+        with open(spec_path, 'r') as f:
+            spec_data = json.load(f)
+            if isinstance(spec_data, dict) and 'specification' in spec_data:
+                spec_content = spec_data['specification']
+            else:
+                spec_content = json.dumps(spec_data)  # Fallback if not in expected format
+    except Exception as e:
+        print(f"Error loading specification: {e}")
+        return
+    
+    # Initialize AI service
+    ai_service = AIService(config)
+    
+    try:
+        # Generate todo list
+        todo_list = ai_service.generate_todo_list(spec_content)
+        
+        if not todo_list or not todo_list.get("tasks"):
+            print("✗ Failed to generate todo list")
+            return
+        
+        # Display the todo list
+        tasks_by_section = {}
+        for task in todo_list["tasks"]:
+            section = task.get("section", "General")
+            if section not in tasks_by_section:
+                tasks_by_section[section] = []
+            tasks_by_section[section].append(task)
+        
+        # Print the todo list
+        for section, tasks in tasks_by_section.items():
+            print(f"\n{COLORS.BOLD}{COLORS.BLUE}## {section}{COLORS.RESET}")
+            for task in tasks:
+                print(f"\n{COLORS.BOLD}{task.get('title', 'Untitled Task')}{COLORS.RESET}")
+                print(f"{COLORS.YELLOW}Complexity: {task.get('complexity', 'Unknown')}{COLORS.RESET}")
+                
+                if task.get('dependencies'):
+                    print(f"{COLORS.YELLOW}Dependencies: {', '.join(task.get('dependencies', []))}{COLORS.RESET}")
+                
+                if task.get('description'):
+                    print(f"\n{task.get('description')}")
+                
+                if task.get('technical_notes'):
+                    print(f"\n{COLORS.CYAN}Technical Notes:{COLORS.RESET}\n{task.get('technical_notes')}")
+                
+                if task.get('testing_notes'):
+                    print(f"\n{COLORS.GREEN}Testing Notes:{COLORS.RESET}\n{task.get('testing_notes')}")
+        
+        # Ask if user wants to save the todo list
+        save_choice = input("\nWould you like to save this todo list? (y/n): ")
+        if save_choice.lower().startswith('y'):
+            # Save in the same directory as the spec file
+            spec_dir = os.path.dirname(spec_path)
+            spec_name = os.path.basename(spec_path)
+            todo_filename = os.path.splitext(spec_name)[0] + "_todo.json"
+            todo_path = os.path.join(spec_dir, todo_filename)
+            
+            try:
+                with open(todo_path, 'w') as f:
+                    json.dump(todo_list, f, indent=2)
+                print(f"\nTodo list saved to: {todo_path}")
+            except Exception as e:
+                print(f"Error saving todo list: {e}")
+    
+    except Exception as e:
+        print(f"✗ Failed to generate todo list: {str(e)}")
+
 @click.group()
 @click.option('--model', help='AI model to use')
 @click.option('--log-level', help='Logging level (DEBUG, INFO, WARNING, ERROR)')
@@ -368,6 +518,13 @@ def list(config: Config) -> None:
 def edit(config: Config, spec_path: Optional[str]) -> None:
     """Edit an existing specification."""
     edit_spec(config, spec_path)
+
+@cli.command()
+@click.argument('spec_path', required=False)
+@click.pass_obj
+def todo(config: Config, spec_path: Optional[str]) -> None:
+    """Generate an engineering todo list from a specification."""
+    generate_todo(config, spec_path)
 
 if __name__ == '__main__':
     cli() 

@@ -113,7 +113,8 @@ class SpecificationManager:
                 # List specification files in the project directory
                 spec_files = []
                 for filename in os.listdir(dir_path):
-                    if not filename.endswith('.json'):
+                    # Skip files that aren't JSON or are todo list files
+                    if not filename.endswith('.json') or filename.endswith('_todo.json'):
                         continue
                         
                     file_path = os.path.join(dir_path, filename)
