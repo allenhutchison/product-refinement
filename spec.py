@@ -364,16 +364,16 @@ class AIService:
         Returns:
             str: Initial product specification
         """
-        print("\n🚀 Generating an initial specification draft...")
         prompt = self.initial_prompt + f"\n\nProduct description: {description}"
-        response = self.ask(prompt, stream=True)
+        response = self.ask(prompt, stream=False, show_response=False)
         
         if response.startswith("ERROR:"):
             print(f"\n⚠️ {response}")
             user_choice = ask_user("Would you like to try again with a different model? (yes/no)")
             if user_choice.lower().startswith('y'):
                 model_name = ask_user("Please enter the model name to try:")
-                return self.ask(prompt, model_name=model_name, stream=True)
+                print(f"\n🔄 Retrying with {model_name}...")
+                response = self.ask(prompt, model_name=model_name, stream=False, show_response=False)
             else:
                 print("\n⚠️ Continuing with empty specification. You may need to add more details manually.")
                 return "Error occurred during generation. Please add specification details manually."
@@ -448,9 +448,17 @@ class AIService:
             if line.endswith(':') and not line.startswith('"') and len(line) < 50:
                 current_section = line.rstrip(':').strip()
                 continue
-                
+            
+            # Clean up JSON-like text
+            if line.startswith('"question":'):
+                line = line.replace('"question":', '').strip()
+                if line.startswith('"') and line.endswith('"'):
+                    line = line[1:-1]  # Remove quotes
+            
             # Look for question marks
             if '?' in line and len(line) > 10:
+                # Clean up any remaining JSON artifacts
+                line = line.strip('",')
                 questions.append({
                     'section': current_section,
                     'question': line
@@ -472,7 +480,7 @@ class AIService:
         """
         print("\n📌 Finalizing the specification with AI...")
         final_prompt = self.final_refinement_prompt.format(spec=spec)
-        response = self.ask(final_prompt, stream=True)
+        response = self.ask(final_prompt, stream=False, show_response=False)
         
         if response.startswith("ERROR:"):
             print(f"\n⚠️ {response}")
@@ -861,22 +869,13 @@ def refine_spec(spec_text: str) -> str:
         question_section = question.get('section', 'General')
         question_text = question.get('question', '')
         
+        # Display the question in a clean format
         if RICH_AVAILABLE:
-            console.print(f"\n[bold]{question_section}[/bold]")
+            console.print(f"\n[bold]📌 {question_section}[/bold]")
             console.print(f"[cyan]{question_text}[/cyan]")
         else:
-            print(f"\n{question_section}:")
+            print(f"\n📌 {question_section}:")
             print(f"{question_text}")
-        
-        user_answer = input("> ").strip()
-        
-        if user_answer.lower() == 'done':
-            display_info("Finalizing specification...")
-            break
-        
-        if user_answer.lower() == 'skip':
-            display_info("Skipping question...")
-            continue
         
         # Process user response and update spec
         updated_spec, should_exit, should_skip = process_user_response(
@@ -999,9 +998,6 @@ def process_user_response(
         - Boolean indicating whether to exit refinement
         - Boolean indicating whether to skip this question
     """
-    print(f"\n📌 Refining section: **{section}**")
-    print(f"🤖 AI Suggestion: {question}")
-    
     user_input = ask_user("\nProvide your answer (or type 'skip' to move on, 'done' to finish refinements).")
 
     if user_input.lower() == "done":
@@ -1176,14 +1172,22 @@ if __name__ == "__main__":
                     ]
                 )
                 
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[bold blue]Generating initial specification...[/bold blue]"),
-                transient=True
-            ) if RICH_AVAILABLE else DummyProgress() as progress:
-                progress.start()
+            if RICH_AVAILABLE:
+                with Progress(
+                    "[progress.description]{task.description}",
+                    SpinnerColumn(),
+                    BarColumn(),
+                    TextColumn("[bold blue]{task.fields[status]}")
+                ) as progress:
+                    task = progress.add_task(
+                        "[cyan]Generating specification...",
+                        status="Working on it..."
+                    )
+                    spec = ai_service.generate_initial_spec(product_description)
+                    progress.update(task, completed=True, status="Done!")
+            else:
+                print("\n🚀 Generating initial specification draft...")
                 spec = ai_service.generate_initial_spec(product_description)
-                progress.stop()
                 
             if RICH_AVAILABLE:
                 console.print("\n📄 [bold]Initial Specification Draft:[/bold]")
@@ -1203,14 +1207,22 @@ if __name__ == "__main__":
         
         updated_spec = refine_spec(spec)
         
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[bold blue]Finalizing specification...[/bold blue]"),
-            transient=True
-        ) if RICH_AVAILABLE else DummyProgress() as progress:
-            progress.start()
+        if RICH_AVAILABLE:
+            with Progress(
+                "[progress.description]{task.description}",
+                SpinnerColumn(),
+                BarColumn(),
+                TextColumn("[bold blue]{task.fields[status]}")
+            ) as progress:
+                task = progress.add_task(
+                    "[cyan]Finalizing specification...",
+                    status="Working on it..."
+                )
+                final_spec = ai_service.finalize_spec(updated_spec)
+                progress.update(task, completed=True, status="Done!")
+        else:
+            print("\n📌 Finalizing the specification...")
             final_spec = ai_service.finalize_spec(updated_spec)
-            progress.stop()
             
         if RICH_AVAILABLE:
             console.print("\n✅ [bold green]FINAL PRODUCT SPECIFICATION:[/bold green]")
