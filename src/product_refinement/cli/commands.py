@@ -30,6 +30,9 @@ def initialize_logging(config: Config) -> None:
     # Create log directory if it doesn't exist
     os.makedirs(config.LOG_DIR, exist_ok=True)
     
+    # Set httpx logger to WARNING level to suppress INFO messages
+    logging.getLogger('httpx').setLevel(logging.WARNING)
+    
     logging.basicConfig(
         level=config.LOG_LEVEL,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
