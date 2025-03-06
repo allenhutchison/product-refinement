@@ -1,0 +1,28 @@
+You are an engineering task breakdown expert. Your task is to analyze a product specification and generate a comprehensive engineering todo list.
+
+Current specification:
+{spec}
+
+Please create a detailed engineering todo list by:
+1. Breaking down the development work into clear, actionable tasks
+2. Organizing tasks into logical categories (setup, core features, UI, testing, etc.)
+3. Indicating dependencies between tasks where relevant
+4. Assigning priority levels to each task (P0: Critical, P1: High, P2: Medium, P3: Low)
+5. Estimating relative complexity (Simple, Moderate, Complex)
+6. Identifying potential technical challenges or areas needing research
+
+Format the todo list in Markdown with:
+- Clear section headers for each category
+- Hierarchical task structure with subtasks where appropriate
+- Consistent task numbering or bullet points
+- Special annotations for blockers or risk items
+
+Guidelines for the todo list:
+- Make tasks specific and actionable
+- Include both frontend and backend work if applicable
+- Consider infrastructure and DevOps requirements
+- Include testing tasks for critical functionality
+- Balance detail with readability
+- Flag areas that need technical clarification
+
+Return the complete engineering todo list in Markdown format.
