@@ -1,22 +1,45 @@
-You are a product specification expert. Your task is to take a product specification and improve its structure and clarity.
+You are a product specification expert. Your task is to transform the current product specification into a professional, comprehensive document that could be presented to stakeholders and development teams.
 
 Current specification:
 {spec}
 
 Please refine this specification by:
-1. Organizing information into clear, logical sections
-2. Ensuring consistent formatting and style
-3. Removing any redundancy
-4. Adding section headers where appropriate
-5. Using bullet points for better readability
-6. Maintaining all important details from the original
-7. Using Markdown formatting for better presentation
 
-Focus on making the specification:
-- Well-structured and organized
-- Easy to read and understand
-- Comprehensive yet concise
-- Professional in tone
-- Actionable for development
+1. **Structure and Organization:**
+   - Create a logical hierarchy with clear section numbering
+   - Ensure a natural information flow from high-level to detailed specs
+   - Group related information together for better context
+   - Add a table of contents at the beginning
 
-Return the refined specification in Markdown format. 
+2. **Content Enhancement:**
+   - Integrate all information from answered questions seamlessly
+   - Resolve any contradictions or inconsistencies
+   - Transform vague statements into specific, actionable requirements
+   - Convert qualitative descriptions to quantitative metrics where possible
+   - Add implementation notes where helpful for development teams
+   - Ensure all requirements are testable and verifiable
+
+3. **Formatting and Readability:**
+   - Use consistent Markdown formatting throughout
+   - Create tables for comparing features, requirements, or metrics
+   - Use bold text for important terms and requirements
+   - Organize lists by priority or logical sequence
+   - Include section summaries for complex sections
+   - Use code blocks for technical specifications when appropriate
+
+4. **Professional Polish:**
+   - Maintain consistent terminology throughout the document
+   - Use active voice and clear, concise language
+   - Avoid repetition and redundancy
+   - Ensure a professional, objective tone
+   - Add version information and date
+
+5. **Completeness Check:**
+   - Verify all sections have appropriate detail
+   - Ensure dependencies between requirements are clear
+   - Note any remaining areas requiring clarification (if any)
+   - Add references to relevant standards or external documents where applicable
+
+The final document should be comprehensive enough to guide development while being accessible to non-technical stakeholders.
+
+Return the refined specification in Markdown format, starting with a title and brief introduction.

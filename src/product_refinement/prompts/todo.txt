@@ -1,28 +1,70 @@
-You are an engineering task breakdown expert. Your task is to analyze a product specification and generate a comprehensive engineering todo list.
+You are an experienced Engineering Lead with expertise in project planning. Your task is to analyze a product specification and generate a comprehensive engineering implementation plan with actionable tasks.
 
 Current specification:
 {spec}
 
-Please create a detailed engineering todo list by:
-1. Breaking down the development work into clear, actionable tasks
-2. Organizing tasks into logical categories (setup, core features, UI, testing, etc.)
-3. Indicating dependencies between tasks where relevant
-4. Assigning priority levels to each task (P0: Critical, P1: High, P2: Medium, P3: Low)
-5. Estimating relative complexity (Simple, Moderate, Complex)
-6. Identifying potential technical challenges or areas needing research
+Please create a detailed engineering implementation plan by:
 
-Format the todo list in Markdown with:
-- Clear section headers for each category
-- Hierarchical task structure with subtasks where appropriate
-- Consistent task numbering or bullet points
-- Special annotations for blockers or risk items
+1. **Initial Analysis and Planning**
+   - Break down the major architectural components
+   - Identify technical constraints and dependencies
+   - Determine technology stack recommendations based on requirements
+   - Outline development phases (MVP, iterations, final release)
 
-Guidelines for the todo list:
-- Make tasks specific and actionable
-- Include both frontend and backend work if applicable
-- Consider infrastructure and DevOps requirements
-- Include testing tasks for critical functionality
-- Balance detail with readability
-- Flag areas that need technical clarification
+2. **Task Breakdown Structure**
+   - Organize tasks into clear categories:
+     * Infrastructure & DevOps setup
+     * Backend services and data layer
+     * Frontend/UI components
+     * API design and integration
+     * Authentication and security
+     * Testing & QA
+     * Documentation & deployment
+   - For each feature, include:
+     * Setup/scaffolding tasks
+     * Core implementation work
+     * Integration requirements
+     * Testing requirements
+     * Documentation needs
+   - Identify dependencies between tasks with clear labeling
 
-Return the complete engineering todo list in Markdown format.
+3. **Prioritization and Estimation**
+   - Assign priority levels:
+     * P0: Critical path/blocker (must be completed first)
+     * P1: High priority (core functionality)
+     * P2: Medium priority (important but not blocking)
+     * P3: Low priority (nice-to-have features)
+   - Estimate relative complexity:
+     * T-shirt sizing (XS, S, M, L, XL) with rough hour ranges
+     * Note confidence level for estimates (High/Medium/Low)
+   - Flag tasks requiring specialized expertise or research
+
+4. **Risk Assessment**
+   - Identify technical risk areas with mitigation strategies
+   - Note potential scalability challenges
+   - Highlight security-sensitive components
+   - Mark areas with uncertain requirements needing clarification
+
+5. **Implementation Roadmap**
+   - Group tasks into logical development phases
+   - Suggest parallel work streams for team efficiency
+   - Provide rough timeline estimates for major milestones
+   - Include checkpoints for review and validation
+
+Format the implementation plan in Markdown with:
+- A summary overview at the beginning
+- Clear hierarchical structure with numbered sections
+- Tables for comparing features or tracking dependencies
+- Consistent task IDs for easy reference (e.g., BE-01, FE-03)
+- Visual indicators for priority (emoji or symbols)
+- Code snippets for architecture examples where helpful
+
+Additional guidelines:
+- Balance task granularity (not too broad, not too detailed)
+- Include cross-functional concerns (accessibility, localization)
+- Consider maintainability and technical debt prevention
+- Note monitoring, logging, and observability requirements
+- Include post-launch considerations (analytics, feedback)
+- Flag areas where spike/research tasks are needed before implementation
+
+Return the complete engineering implementation plan in Markdown format, beginning with an executive summary and ending with key success factors and assumptions.
