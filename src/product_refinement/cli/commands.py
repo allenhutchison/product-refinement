@@ -230,6 +230,21 @@ def edit_spec(config: Config, spec_path: Optional[str] = None) -> None:
                 except ValueError:
                     display_error("Please enter a valid number.")
         
+        else:
+            # Check if spec_path is a directory (project name)
+            full_dir_path = os.path.join(config.SPECS_DIR, spec_path)
+            if os.path.isdir(full_dir_path) and spec_path in specs:
+                # Select the most recent version from the directory
+                versions = specs[spec_path]
+                if versions:
+                    # Sort by version number (descending) and take the first one
+                    latest_version = sorted(versions, key=lambda v: v['version'], reverse=True)[0]
+                    spec_path = os.path.join(full_dir_path, latest_version['filename'])
+                    display_info(f"Using latest version: {latest_version['filename']}")
+                else:
+                    display_error(f"No specification files found in project: {spec_path}")
+                    return
+        
         # Load and display the specification
         spec_data = spec_manager.load_specification(spec_path)
         if not spec_data:
@@ -310,7 +325,7 @@ def edit_spec(config: Config, spec_path: Optional[str] = None) -> None:
             console.print("\n📝 Updated Specification:")
             console.print(format_spec_as_markdown(spec))
             
-            # Ask if user wants to continue
+            # Ask if user wants to continue refining
             if not ask_user("\nWould you like to continue refining? (yes/no)").lower().startswith('y'):
                 break
         
@@ -527,4 +542,4 @@ def todo(config: Config, spec_path: Optional[str]) -> None:
     generate_todo(config, spec_path)
 
 if __name__ == '__main__':
-    cli() 
+    cli()
