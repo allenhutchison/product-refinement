@@ -497,8 +497,9 @@ def generate_todo(config: Config, spec_path: Optional[str] = None) -> None:
 @click.group()
 @click.option('--model', help='AI model to use')
 @click.option('--log-level', help='Logging level (DEBUG, INFO, WARNING, ERROR)')
+@click.option('--doc-type', help='Document type to work with (e.g., product_requirements)')
 @click.pass_context
-def cli(ctx: click.Context, model: Optional[str], log_level: Optional[str]) -> None:
+def cli(ctx: click.Context, model: Optional[str], log_level: Optional[str], doc_type: Optional[str]) -> None:
     """Product Refinement Tool - Generate and refine product specifications using AI."""
     # Initialize configuration
     config = Config()
@@ -508,6 +509,8 @@ def cli(ctx: click.Context, model: Optional[str], log_level: Optional[str]) -> N
         config.MODEL_NAME = model
     if log_level:
         config.LOG_LEVEL = getattr(logging, log_level.upper())
+    if doc_type:
+        config.DOCUMENT_TYPE = doc_type
     
     # Initialize logging
     initialize_logging(config)

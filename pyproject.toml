@@ -40,4 +40,4 @@ package-dir = { "" = "src" }
 packages = ["product_refinement"]
 
 [tool.setuptools.package-data]
-product_refinement = ["prompts/*.txt"]
+product_refinement = ["prompts/**/*.txt"]

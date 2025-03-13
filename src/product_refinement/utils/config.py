@@ -10,6 +10,7 @@ class Config:
     CACHE_DIR: str = os.path.expanduser("~/.cache/product_refinement")
     LOG_DIR: str = os.path.expanduser("~/product_refinement/logs")
     CACHE_EXPIRY: int = 60 * 60 * 24 * 7  # 1 week in seconds
+    DOCUMENT_TYPE: str = "product_requirements"  # Default document type
     
     @classmethod
     def from_args(cls, args):
@@ -19,4 +20,6 @@ class Config:
             config.MODEL_NAME = args.model
         if hasattr(args, 'log_level') and args.log_level:
             config.LOG_LEVEL = args.log_level
-        return config 
+        if hasattr(args, 'doc_type') and args.doc_type:
+            config.DOCUMENT_TYPE = args.doc_type
+        return config

@@ -12,6 +12,7 @@ A command-line tool for generating and refining product specifications using AI.
 - Markdown formatting for better readability
 - Caching of AI responses for better performance
 - Comprehensive error handling and logging
+- Support for multiple document types through modular prompts
 
 ## Installation
 
@@ -75,10 +76,11 @@ Generates a detailed engineering todo list from an existing specification, inclu
 
 - `--model`: Specify which AI model to use
 - `--log-level`: Set logging level (DEBUG, INFO, WARNING, ERROR)
+- `--doc-type`: Specify the document type (e.g., product_requirements)
 
 Example:
 ```bash
-refine --model gemini-pro --log-level DEBUG create
+refine --model gemini-pro --log-level DEBUG --doc-type product_requirements create
 ```
 
 ## Configuration
@@ -92,6 +94,19 @@ The tool uses the following configuration settings:
 - `SPECS_DIR`: Directory for saved specifications
 - `PROMPT_DIR`: Directory for prompt templates
 - `CACHE_EXPIRY`: Time in seconds before cache entries expire
+- `DOCUMENT_TYPE`: Type of document to generate (default: product_requirements)
+
+## Adding New Document Types
+
+To add support for a new document type:
+
+1. Create a new subdirectory in the `prompts` directory (e.g., `prompts/technical_spec/`)
+2. Add the required prompt files to this directory:
+   - `initial.txt` - Prompt for generating the initial document
+   - `refinement.txt` - Prompt for follow-up questions
+   - `final_refinement.txt` - Prompt for finalizing the document
+   - `todo.txt` - Prompt for generating todo items
+3. Use the `--doc-type` option to specify your new document type
 
 ## Project Structure
 
@@ -107,10 +122,13 @@ src/
     │   ├── __init__.py
     │   └── commands.py
     ├── prompts/
-    │   ├── initial.txt
-    │   ├── refinement.txt
-    │   ├── final_refinement.txt
-    │   └── todo.txt
+    │   ├── __init__.py
+    │   └── product_requirements/
+    │       ├── __init__.py
+    │       ├── initial.txt
+    │       ├── refinement.txt
+    │       ├── final_refinement.txt
+    │       └── todo.txt
     └── utils/
         ├── __init__.py
         ├── config.py

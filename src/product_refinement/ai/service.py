@@ -30,12 +30,14 @@ class AIService:
     def _load_prompts(self) -> None:
         """Load all prompts from files."""
         try:
-            self.initial_prompt = self._load_prompt_file("initial.txt")
-            self.refinement_prompt = self._load_prompt_file("refinement.txt")
-            self.final_refinement_prompt = self._load_prompt_file("final_refinement.txt")
-            self.todo_prompt = self._load_prompt_file("todo.txt")
+            # Use the document type from config to determine prompt directory
+            doc_type = self.config.DOCUMENT_TYPE
+            self.initial_prompt = self._load_prompt_file(f"{doc_type}/initial.txt")
+            self.refinement_prompt = self._load_prompt_file(f"{doc_type}/refinement.txt")
+            self.final_refinement_prompt = self._load_prompt_file(f"{doc_type}/final_refinement.txt")
+            self.todo_prompt = self._load_prompt_file(f"{doc_type}/todo.txt")
         except ValueError as e:
-            logging.error(f"Error loading prompts: {str(e)}")
+            logging.error(f"Error loading prompts for document type '{doc_type}': {str(e)}")
             sys.exit(1)
     
     def _load_prompt_file(self, prompt_file: str) -> str:
@@ -43,7 +45,7 @@ class AIService:
         Load a prompt from a file in the prompts directory.
         
         Args:
-            prompt_file (str): Name of the prompt file to load
+            prompt_file (str): Path to the prompt file to load, relative to the prompts directory
             
         Returns:
             str: Content of the prompt file
@@ -546,4 +548,4 @@ class AIService:
             task.setdefault("technical_notes", "")
             task.setdefault("testing_notes", "")
             
-        return tasks 
+        return tasks
