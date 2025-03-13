@@ -437,12 +437,21 @@ def generate_todo(config: Config, spec_path: Optional[str] = None) -> None:
         print(f"Error loading specification: {e}")
         return
     
-    # Initialize AI service
+    # Save the original document type
+    original_doc_type = config.DOCUMENT_TYPE
+    
+    # Set document type to engineering_todo for generating todo list
+    config.DOCUMENT_TYPE = "engineering_todo"
+    
+    # Initialize AI service with engineering_todo document type
     ai_service = AIService(config)
     
     try:
         # Generate todo list
         todo_list = ai_service.generate_todo_list(spec_content)
+        
+        # Restore original document type
+        config.DOCUMENT_TYPE = original_doc_type
         
         if not todo_list or not todo_list.get("tasks"):
             print("✗ Failed to generate todo list")
@@ -493,6 +502,8 @@ def generate_todo(config: Config, spec_path: Optional[str] = None) -> None:
     
     except Exception as e:
         print(f"✗ Failed to generate todo list: {str(e)}")
+        # Make sure to restore original document type in case of error
+        config.DOCUMENT_TYPE = original_doc_type
 
 @click.group()
 @click.option('--model', help='AI model to use')

@@ -32,10 +32,27 @@ class AIService:
         try:
             # Use the document type from config to determine prompt directory
             doc_type = self.config.DOCUMENT_TYPE
-            self.initial_prompt = self._load_prompt_file(f"{doc_type}/initial.txt")
-            self.refinement_prompt = self._load_prompt_file(f"{doc_type}/refinement.txt")
-            self.final_refinement_prompt = self._load_prompt_file(f"{doc_type}/final_refinement.txt")
-            self.todo_prompt = self._load_prompt_file(f"{doc_type}/todo.txt")
+            
+            # Define required prompts based on document type
+            if doc_type == "engineering_todo":
+                # For engineering_todo type, we only need the initial prompt
+                self.initial_prompt = self._load_prompt_file(f"{doc_type}/initial.txt")
+                self.refinement_prompt = None
+                self.final_refinement_prompt = None
+                self.todo_prompt = None
+            else:
+                # Default document type (product_requirements)
+                self.initial_prompt = self._load_prompt_file(f"{doc_type}/initial.txt")
+                self.refinement_prompt = self._load_prompt_file(f"{doc_type}/refinement.txt")
+                self.final_refinement_prompt = self._load_prompt_file(f"{doc_type}/final_refinement.txt")
+                
+                # For backward compatibility, try to load todo prompt but don't fail if missing
+                try:
+                    self.todo_prompt = self._load_prompt_file(f"{doc_type}/todo.txt")
+                except ValueError:
+                    logging.warning(f"Todo prompt not found for document type '{doc_type}', will use engineering_todo type instead")
+                    self.todo_prompt = self._load_prompt_file("engineering_todo/initial.txt")
+                    
         except ValueError as e:
             logging.error(f"Error loading prompts for document type '{doc_type}': {str(e)}")
             sys.exit(1)
@@ -405,6 +422,23 @@ class AIService:
         Returns:
             Dict[str, List[Dict[str, Any]]]: The generated todo list with tasks
         """
+        # If we don't have a todo prompt loaded, use the engineering_todo document type
+        if not hasattr(self, 'todo_prompt') or self.todo_prompt is None:
+            # Temporarily switch to engineering_todo document type
+            current_doc_type = self.config.DOCUMENT_TYPE
+            self.config.DOCUMENT_TYPE = "engineering_todo"
+            self._load_prompts()
+            
+            # Use the initial prompt from engineering_todo as the todo prompt
+            prompt = self.initial_prompt.format(spec=spec)
+            
+            # Reset document type after using engineering_todo
+            self.config.DOCUMENT_TYPE = current_doc_type
+            self._load_prompts()
+        else:
+            # Use the regular todo prompt if available
+            prompt = self.todo_prompt.format(spec=spec)
+            
         # Use a direct approach instead of trying to get valid JSON from the model
         # Define sections we want to generate tasks for
         sections = [
@@ -421,7 +455,7 @@ class AIService:
         
         # Generate tasks for each section separately
         for section in sections:
-            prompt = f"""
+            section_prompt = f"""
             You are a technical lead creating an engineering todo list for a product.
             For the '{section}' section only, create 2-3 focused tasks based on this specification:
             
@@ -438,7 +472,7 @@ class AIService:
             Format your response as a clean simple list with clear sections. Do not include any explanations or formatting beyond the task details.
             """
             
-            response = self.ask(prompt, stream=False, show_response=False)
+            response = self.ask(section_prompt, stream=False, show_response=False)
             
             if response.startswith("ERROR:"):
                 logging.error(f"Error generating tasks for section {section}: {response}")
