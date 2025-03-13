@@ -123,12 +123,14 @@ src/
     │   └── commands.py
     ├── prompts/
     │   ├── __init__.py
-    │   └── product_requirements/
+    │   ├── product_requirements/
+    │   │   ├── __init__.py
+    │   │   ├── initial.txt
+    │   │   ├── refinement.txt
+    │   │   └── final_refinement.txt
+    │   └── engineering_todo/
     │       ├── __init__.py
-    │       ├── initial.txt
-    │       ├── refinement.txt
-    │       ├── final_refinement.txt
-    │       └── todo.txt
+    │       └── initial.txt
     └── utils/
         ├── __init__.py
         ├── config.py

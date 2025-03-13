@@ -40,18 +40,31 @@ class AIService:
                 self.refinement_prompt = None
                 self.final_refinement_prompt = None
                 self.todo_prompt = None
-            else:
-                # Default document type (product_requirements)
+            elif doc_type == "product_requirements":
+                # For product_requirements type
                 self.initial_prompt = self._load_prompt_file(f"{doc_type}/initial.txt")
                 self.refinement_prompt = self._load_prompt_file(f"{doc_type}/refinement.txt")
                 self.final_refinement_prompt = self._load_prompt_file(f"{doc_type}/final_refinement.txt")
+                # No todo prompt for product_requirements - we use engineering_todo for that
+                self.todo_prompt = None
+            else:
+                # For any other document types, try to load standard prompts
+                self.initial_prompt = self._load_prompt_file(f"{doc_type}/initial.txt")
                 
-                # For backward compatibility, try to load todo prompt but don't fail if missing
+                # Try to load optional prompts but don't fail if missing
                 try:
-                    self.todo_prompt = self._load_prompt_file(f"{doc_type}/todo.txt")
+                    self.refinement_prompt = self._load_prompt_file(f"{doc_type}/refinement.txt")
                 except ValueError:
-                    logging.warning(f"Todo prompt not found for document type '{doc_type}', will use engineering_todo type instead")
-                    self.todo_prompt = self._load_prompt_file("engineering_todo/initial.txt")
+                    self.refinement_prompt = None
+                    logging.info(f"Refinement prompt not found for document type '{doc_type}'")
+                    
+                try:
+                    self.final_refinement_prompt = self._load_prompt_file(f"{doc_type}/final_refinement.txt")
+                except ValueError:
+                    self.final_refinement_prompt = None
+                    logging.info(f"Final refinement prompt not found for document type '{doc_type}'")
+                    
+                self.todo_prompt = None
                     
         except ValueError as e:
             logging.error(f"Error loading prompts for document type '{doc_type}': {str(e)}")
@@ -422,23 +435,16 @@ class AIService:
         Returns:
             Dict[str, List[Dict[str, Any]]]: The generated todo list with tasks
         """
-        # If we don't have a todo prompt loaded, use the engineering_todo document type
-        if not hasattr(self, 'todo_prompt') or self.todo_prompt is None:
-            # Temporarily switch to engineering_todo document type
-            current_doc_type = self.config.DOCUMENT_TYPE
-            self.config.DOCUMENT_TYPE = "engineering_todo"
-            self._load_prompts()
-            
-            # Use the initial prompt from engineering_todo as the todo prompt
-            prompt = self.initial_prompt.format(spec=spec)
-            
-            # Reset document type after using engineering_todo
-            self.config.DOCUMENT_TYPE = current_doc_type
-            self._load_prompts()
-        else:
-            # Use the regular todo prompt if available
-            prompt = self.todo_prompt.format(spec=spec)
-            
+        # Always use the engineering_todo document type for todo lists
+        original_doc_type = self.config.DOCUMENT_TYPE
+        self.config.DOCUMENT_TYPE = "engineering_todo"
+        
+        # Reload prompts with the engineering_todo document type
+        self._load_prompts()
+        
+        # Use the engineering_todo initial prompt
+        todo_prompt = self.initial_prompt.format(spec=spec)
+        
         # Use a direct approach instead of trying to get valid JSON from the model
         # Define sections we want to generate tasks for
         sections = [
@@ -453,35 +459,41 @@ class AIService:
         
         tasks = []
         
-        # Generate tasks for each section separately
-        for section in sections:
-            section_prompt = f"""
-            You are a technical lead creating an engineering todo list for a product.
-            For the '{section}' section only, create 2-3 focused tasks based on this specification:
-            
-            {spec}
-            
-            For each task, provide:
-            1. A brief title (one line)
-            2. Complexity (Low/Medium/High)
-            3. Dependencies (if any)
-            4. A detailed description (2-3 sentences)
-            5. Technical notes (1-2 sentences)
-            6. Testing notes (1-2 sentences)
-            
-            Format your response as a clean simple list with clear sections. Do not include any explanations or formatting beyond the task details.
-            """
-            
-            response = self.ask(section_prompt, stream=False, show_response=False)
-            
-            if response.startswith("ERROR:"):
-                logging.error(f"Error generating tasks for section {section}: {response}")
-                continue
+        try:
+            # Generate tasks for each section separately
+            for section in sections:
+                section_prompt = f"""
+                You are a technical lead creating an engineering todo list for a product.
+                For the '{section}' section only, create 2-3 focused tasks based on this specification:
                 
-            # Parse the response into task objects manually
-            task_blocks = self._parse_tasks_from_text(response, section)
-            tasks.extend(task_blocks)
-            
+                {spec}
+                
+                For each task, provide:
+                1. A brief title (one line)
+                2. Complexity (Low/Medium/High)
+                3. Dependencies (if any)
+                4. A detailed description (2-3 sentences)
+                5. Technical notes (1-2 sentences)
+                6. Testing notes (1-2 sentences)
+                
+                Format your response as a clean simple list with clear sections. Do not include any explanations or formatting beyond the task details.
+                """
+                
+                response = self.ask(section_prompt, stream=False, show_response=False)
+                
+                if response.startswith("ERROR:"):
+                    logging.error(f"Error generating tasks for section {section}: {response}")
+                    continue
+                    
+                # Parse the response into task objects manually
+                task_blocks = self._parse_tasks_from_text(response, section)
+                tasks.extend(task_blocks)
+        
+        finally:
+            # Always restore the original document type
+            self.config.DOCUMENT_TYPE = original_doc_type
+            self._load_prompts()
+        
         return {"tasks": tasks}
         
     def _parse_tasks_from_text(self, text: str, section: str) -> List[Dict[str, Any]]:
