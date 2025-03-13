@@ -45,19 +45,92 @@ def initialize_logging(config: Config) -> None:
 
 def create_spec(config: Config) -> None:
     """Create a new product specification."""
-    display_banner("Create New Product Specification")
-    
-    # Get product description
-    while True:
-        try:
-            description = ask_user("\nPlease describe your product idea:")
-            Validator.not_empty(description)
-            break
-        except ValidationError as e:
-            display_error(str(e))
+    display_banner(f"Create New {config.DOCUMENT_TYPE.replace('_', ' ').title()}")
     
     # Initialize AI service
     ai_service = AIService(config)
+    
+    # Check for dependencies
+    dependencies = ai_service.get_document_dependencies()
+    dependency_values = {}
+    
+    if dependencies:
+        display_info("\nThis document type has dependencies:")
+        
+        for dep in dependencies:
+            source_type = dep["source_type"]
+            source_field = dep["source_field"]
+            placeholder = dep["placeholder"]
+            
+            display_info(f"• Requires {source_field} from {source_type}")
+            
+            # We need to get the source document
+            spec_manager = SpecificationManager(config)
+            specs = spec_manager.list_specifications()
+            
+            if not specs:
+                display_error(f"No specifications found. Please create a {source_type} document first.")
+                return
+                
+            # Create a flat list of all specifications
+            all_specs = []
+            for project_dir, versions in specs.items():
+                for version in versions:
+                    all_specs.append({
+                        'path': os.path.join(project_dir, version['filename']),
+                        'project': project_dir,
+                        'version': version
+                    })
+            
+            # Display numbered list of specifications
+            console.print("\nSelect a source document:")
+            for i, spec in enumerate(all_specs, 1):
+                console.print(
+                    f"{i}. {spec['project']} - "
+                    f"v{spec['version']['version']} "
+                    f"({spec['version']['formatted_timestamp']})"
+                )
+            
+            # Get user selection
+            while True:
+                try:
+                    selection = ask_user("\nEnter the number of the source document (or 'q' to quit):")
+                    if selection.lower() == 'q':
+                        return
+                    
+                    index = int(selection) - 1
+                    if 0 <= index < len(all_specs):
+                        spec_path = all_specs[index]['path']
+                        break
+                    else:
+                        display_error("Invalid selection. Please try again.")
+                except ValueError:
+                    display_error("Please enter a valid number.")
+            
+            # Load the selected specification
+            spec_data = spec_manager.load_specification(spec_path)
+            if not spec_data:
+                display_error(f"Specification not found: {spec_path}")
+                return
+                
+            # Extract the required field
+            if source_field not in spec_data:
+                display_error(f"Field '{source_field}' not found in the selected specification.")
+                return
+                
+            # Add to dependency values
+            dependency_values[placeholder] = spec_data[source_field]
+    
+    # Get product description if needed (for document types without dependencies)
+    description = ""
+    if not dependencies:
+        while True:
+            try:
+                description = ask_user("\nPlease describe your product idea:")
+                Validator.not_empty(description)
+                break
+            except ValidationError as e:
+                display_error(str(e))
     
     # Generate initial specification
     with Progress(
@@ -65,8 +138,8 @@ def create_spec(config: Config) -> None:
         TextColumn("[progress.description]{task.description}"),
         transient=True,
     ) as progress:
-        progress.add_task(description="Generating initial specification...", total=None)
-        initial_spec = ai_service.generate_initial_spec(description)
+        progress.add_task(description="Generating initial document...", total=None)
+        initial_spec = ai_service.generate_initial_spec(description, dependency_values)
     
     if initial_spec.startswith("Error"):
         display_error("Failed to generate initial specification.")
@@ -156,26 +229,36 @@ def create_spec(config: Config) -> None:
         display_error(f"Failed to save specification: {str(e)}")
 
 def list_specs(config: Config) -> None:
-    """List all saved specifications."""
-    display_banner("Saved Specifications")
+    """List all saved specifications organized by document type."""
+    display_banner("All Documents")
     
     try:
         spec_manager = SpecificationManager(config)
-        specs = spec_manager.list_specifications()
+        specs_by_type = spec_manager.list_specifications()
         
-        if not specs:
-            display_info("No specifications found.")
+        if not specs_by_type:
+            display_info("No documents found.")
             return
         
-        for project_dir, versions in specs.items():
-            console.print(f"\n📁 {project_dir}")
-            for version in versions:
-                console.print(
-                    f"  └─ {version['formatted_timestamp']} - "
-                    f"v{version['version']} - {version['filename']}"
-                )
+        # Display documents by document type
+        for doc_type, specs in specs_by_type.items():
+            if not specs:  # Skip empty document types
+                continue
+                
+            # Display document type as a section header
+            pretty_doc_type = doc_type.replace('_', ' ').title()
+            console.print(f"\n[bold blue]== {pretty_doc_type} Documents ==[/bold blue]")
+            
+            # List projects/documents under this document type
+            for project_dir, versions in specs.items():
+                console.print(f"\n📁 {project_dir}")
+                for version in versions:
+                    console.print(
+                        f"  └─ {version['formatted_timestamp']} - "
+                        f"v{version['version']} - {version['filename']}"
+                    )
     except Exception as e:
-        display_error(f"Failed to list specifications: {str(e)}")
+        display_error(f"Failed to list documents: {str(e)}")
 
 def edit_spec(config: Config, spec_path: Optional[str] = None) -> None:
     """Edit an existing specification."""
@@ -368,6 +451,9 @@ def generate_todo(config: Config, spec_path: Optional[str] = None) -> None:
     # Initialize logging
     initialize_logging(config)
     
+    # This is a special case that directly uses engineering_todo document type
+    # so we'll handle it explicitly rather than using the general dependency system
+    
     # Initialize spec manager
     spec_manager = SpecificationManager(config)
     
@@ -536,9 +622,12 @@ def create(config: Config) -> None:
     create_spec(config)
 
 @cli.command()
+@click.option('--doc-type', help='Filter by document type')
 @click.pass_obj
-def list(config: Config) -> None:
-    """List all saved specifications."""
+def list(config: Config, doc_type: Optional[str] = None) -> None:
+    """List all saved documents, optionally filtered by document type."""
+    if doc_type:
+        config.DOCUMENT_TYPE = doc_type
     list_specs(config)
 
 @cli.command()

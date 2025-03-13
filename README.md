@@ -105,7 +105,6 @@ To add support for a new document type:
    - `initial.txt` - Prompt for generating the initial document
    - `refinement.txt` - Prompt for follow-up questions
    - `final_refinement.txt` - Prompt for finalizing the document
-   - `todo.txt` - Prompt for generating todo items
 3. Use the `--doc-type` option to specify your new document type
 
 ## Project Structure

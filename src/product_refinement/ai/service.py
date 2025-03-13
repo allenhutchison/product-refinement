@@ -10,10 +10,11 @@ import time
 from typing import Dict, List, Optional, Any
 
 import llm
+import importlib
 
 from ..utils.config import Config
 from ..utils.display import ask_user
-from ..utils.types import Question
+from ..utils.types import Question, DocumentDependency
 
 class AIService:
     """Service for interacting with AI models."""
@@ -33,6 +34,20 @@ class AIService:
             # Use the document type from config to determine prompt directory
             doc_type = self.config.DOCUMENT_TYPE
             
+            # Load the document type module to access its dependencies
+            try:
+                # Get the base package name (whatever is before 'ai.service' in __name__)
+                package_parts = __name__.split('.')
+                package_root = '.'.join(package_parts[:-2])  # Remove 'ai.service' part
+                
+                # Import using absolute path
+                doc_module = importlib.import_module(f"{package_root}.prompts.{doc_type}")
+                self.dependencies = getattr(doc_module, "DEPENDENCIES", [])
+                logging.debug(f"Loaded dependencies for document type '{doc_type}'")
+            except (ImportError, AttributeError) as e:
+                logging.warning(f"Could not find dependencies for document type '{doc_type}', assuming none: {e}")
+                self.dependencies = []
+                
             # Define required prompts based on document type
             if doc_type == "engineering_todo":
                 # For engineering_todo type, we only need the initial prompt
@@ -262,18 +277,44 @@ class AIService:
                 self.config.MODEL_NAME = current_model_name
                 self.llm = None  # Reset to force reload with original model
 
+    def get_document_dependencies(self) -> List[DocumentDependency]:
+        """Get the dependencies for the current document type."""
+        return self.dependencies
+    
+    def apply_dependencies(self, prompt: str, dependency_values: Dict[str, str]) -> str:
+        """
+        Apply dependency values to placeholders in the prompt.
+        
+        Args:
+            prompt (str): The prompt template with placeholders
+            dependency_values (Dict[str, str]): Map of placeholder names to their values
+            
+        Returns:
+            str: The prompt with placeholders replaced by their values
+        """
+        result = prompt
+        for placeholder, value in dependency_values.items():
+            result = result.replace(f"{{{placeholder}}}", value)
+        return result
+
     @cached_ai_call
-    def generate_initial_spec(self, description: str) -> str:
+    def generate_initial_spec(self, description: str, dependency_values: Optional[Dict[str, str]] = None) -> str:
         """
         Generate an initial product specification using AI.
         
         Args:
             description (str): Brief description of the product
+            dependency_values (Optional[Dict[str, str]]): Values for any dependencies
             
         Returns:
             str: Initial product specification
         """
         prompt = self.initial_prompt + f"\n\nProduct description: {description}"
+        
+        # Apply any dependency values
+        if dependency_values:
+            prompt = self.apply_dependencies(prompt, dependency_values)
+            
         response = self.ask(prompt, stream=False, show_response=False)
         
         if response.startswith("ERROR:"):
