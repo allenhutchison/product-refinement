@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import json
+from datetime import datetime
 from typing import Dict, List, Optional
 
 import click
@@ -229,33 +230,34 @@ def create_spec(config: Config) -> None:
         display_error(f"Failed to save specification: {str(e)}")
 
 def list_specs(config: Config) -> None:
-    """List all saved specifications organized by document type."""
-    display_banner("All Documents")
+    """List all saved specifications organized by project."""
+    display_banner("All Projects")
     
     try:
         spec_manager = SpecificationManager(config)
-        specs_by_type = spec_manager.list_specifications()
+        specs_by_project = spec_manager.list_specifications()
         
-        if not specs_by_type:
+        if not specs_by_project:
             display_info("No documents found.")
             return
         
-        # Display documents by document type
-        for doc_type, specs in specs_by_type.items():
-            if not specs:  # Skip empty document types
-                continue
-                
-            # Display document type as a section header
-            pretty_doc_type = doc_type.replace('_', ' ').title()
-            console.print(f"\n[bold blue]== {pretty_doc_type} Documents ==[/bold blue]")
+        # Display documents by project
+        for project_name, doc_types in specs_by_project.items():
+            # Format the project name nicely for display
+            pretty_project = project_name.replace('_', ' ').title()
+            console.print(f"\n[bold blue]== Project: {pretty_project} ==[/bold blue]")
             
-            # List projects/documents under this document type
-            for project_dir, versions in specs.items():
-                console.print(f"\n📁 {project_dir}")
-                for version in versions:
+            # For each document type in this project
+            for doc_type, specs in doc_types.items():
+                # Format document type for display
+                pretty_doc_type = doc_type.replace('_', ' ').title()
+                console.print(f"\n[bold cyan]{pretty_doc_type} Documents:[/bold cyan]")
+                
+                # List specifications for this document type
+                for spec in specs:
                     console.print(
-                        f"  └─ {version['formatted_timestamp']} - "
-                        f"v{version['version']} - {version['filename']}"
+                        f"  • {spec['formatted_timestamp']} - "
+                        f"v{spec['version']} - {spec['filename']}"
                     )
     except Exception as e:
         display_error(f"Failed to list documents: {str(e)}")
@@ -451,64 +453,98 @@ def generate_todo(config: Config, spec_path: Optional[str] = None) -> None:
     # Initialize logging
     initialize_logging(config)
     
-    # This is a special case that directly uses engineering_todo document type
-    # so we'll handle it explicitly rather than using the general dependency system
-    
     # Initialize spec manager
     spec_manager = SpecificationManager(config)
     
-    # Get available specifications
-    specs = spec_manager.list_specifications()
+    # Save the original document type
+    original_doc_type = config.DOCUMENT_TYPE
     
-    if not specs:
+    # Get available specifications - we need to look for product_requirements
+    # rather than using the current document type
+    config.DOCUMENT_TYPE = "product_requirements"
+    all_specs_by_project = spec_manager.list_specifications()
+    
+    # Create a flattened list of product requirement specs from all projects
+    all_req_specs = []
+    for project_name, doc_types in all_specs_by_project.items():
+        if "product_requirements" in doc_types:
+            for spec in doc_types["product_requirements"]:
+                # Build full path for each spec
+                spec_full_path = os.path.join(
+                    config.SPECS_DIR, 
+                    project_name, 
+                    "product_requirements",
+                    spec["filename"]
+                )
+                all_req_specs.append({
+                    'path': spec_full_path,
+                    'name': project_name.replace('_', ' ').title(),
+                    'version': spec['version'],
+                    'date': spec['formatted_timestamp'],
+                    'project_dir': project_name
+                })
+    
+    if not all_req_specs:
         print("No specifications found. Please create a specification first.")
+        config.DOCUMENT_TYPE = original_doc_type
         return
     
     # If spec_path is not provided, show a list of available specs
     if not spec_path:
-        # Create a flat list of all specifications with their paths
-        all_specs = []
-        for project_dir, versions in specs.items():
-            for version in versions:
-                # Construct the full path to the specification file
-                full_path = os.path.join(config.SPECS_DIR, project_dir, version['filename'])
-                all_specs.append({
-                    'path': full_path,
-                    'name': os.path.basename(project_dir),
-                    'version': version['version'],
-                    'date': version['formatted_timestamp']
-                })
-        
         print("\nAvailable specifications:")
-        for i, spec in enumerate(all_specs, 1):
+        for i, spec in enumerate(all_req_specs, 1):
             print(f"{i}. {spec['name']} - v{spec['version']} ({spec['date']})")
         
         # Ask user to select a specification
-        spec_choice = input("\nEnter the number of the specification to generate todo list from (or 'q' to quit):: ")
+        spec_choice = input("\nEnter the number of the specification to generate todo list from (or 'q' to quit): ")
         if spec_choice.lower() == 'q':
+            config.DOCUMENT_TYPE = original_doc_type
             return
         
         try:
             spec_idx = int(spec_choice) - 1
-            if spec_idx < 0 or spec_idx >= len(all_specs):
+            if spec_idx < 0 or spec_idx >= len(all_req_specs):
                 print("Invalid selection.")
+                config.DOCUMENT_TYPE = original_doc_type
                 return
                 
-            selected_spec = all_specs[spec_idx]
+            selected_spec = all_req_specs[spec_idx]
             spec_path = selected_spec['path']
+            selected_project_dir = selected_spec['project_dir']
         except ValueError:
             print("Invalid selection. Please enter a number.")
+            config.DOCUMENT_TYPE = original_doc_type
             return
     else:
-        # If spec_path is provided but doesn't contain the full path, append the config.SPECS_DIR
+        # If spec_path is provided but doesn't contain the full path, try to find it
         if not os.path.isabs(spec_path) and not os.path.exists(spec_path):
-            potential_path = os.path.join(config.SPECS_DIR, spec_path)
-            if os.path.exists(potential_path):
-                spec_path = potential_path
+            # Try finding it in the new project-first structure
+            found = False
+            selected_project_dir = None
+            
+            for spec in all_req_specs:
+                if spec_path in spec['path'] or os.path.basename(spec_path) == os.path.basename(spec['path']):
+                    spec_path = spec['path']
+                    selected_project_dir = spec['project_dir']
+                    found = True
+                    break
+                    
+            if not found:
+                potential_path = os.path.join(config.SPECS_DIR, spec_path)
+                if os.path.exists(potential_path):
+                    spec_path = potential_path
+                    # Try to extract the project name from the path
+                    parts = os.path.normpath(spec_path).split(os.sep)
+                    if len(parts) >= 2:
+                        # Path structure should be project/doc_type/filename
+                        selected_project_dir = parts[-3]
+                    else:
+                        selected_project_dir = "unknown"
     
     # Validate the provided spec_path
     if not os.path.exists(spec_path):
         print(f"Specification file not found: {spec_path}")
+        config.DOCUMENT_TYPE = original_doc_type
         return
     
     # Load the specification
@@ -517,14 +553,15 @@ def generate_todo(config: Config, spec_path: Optional[str] = None) -> None:
             spec_data = json.load(f)
             if isinstance(spec_data, dict) and 'specification' in spec_data:
                 spec_content = spec_data['specification']
+                if 'product_name' in spec_data:
+                    project_name = spec_data['product_name']
+                    selected_project_dir = project_name.lower().replace(' ', '_')
             else:
                 spec_content = json.dumps(spec_data)  # Fallback if not in expected format
     except Exception as e:
         print(f"Error loading specification: {e}")
+        config.DOCUMENT_TYPE = original_doc_type
         return
-    
-    # Save the original document type
-    original_doc_type = config.DOCUMENT_TYPE
     
     # Set document type to engineering_todo for generating todo list
     config.DOCUMENT_TYPE = "engineering_todo"
@@ -573,18 +610,40 @@ def generate_todo(config: Config, spec_path: Optional[str] = None) -> None:
         # Ask if user wants to save the todo list
         save_choice = input("\nWould you like to save this todo list? (y/n): ")
         if save_choice.lower().startswith('y'):
-            # Save in the same directory as the spec file
-            spec_dir = os.path.dirname(spec_path)
-            spec_name = os.path.basename(spec_path)
-            todo_filename = os.path.splitext(spec_name)[0] + "_todo.json"
-            todo_path = os.path.join(spec_dir, todo_filename)
-            
-            try:
-                with open(todo_path, 'w') as f:
-                    json.dump(todo_list, f, indent=2)
-                print(f"\nTodo list saved to: {todo_path}")
-            except Exception as e:
-                print(f"Error saving todo list: {e}")
+            # Create engineering_todo directory in the project folder
+            if selected_project_dir:
+                # Get project name from the directory name
+                project_name = selected_project_dir.replace('_', ' ').title()
+                
+                # Get the appropriate directory for the todo list
+                todo_dir = os.path.join(
+                    config.SPECS_DIR,
+                    selected_project_dir,
+                    "engineering_todo"
+                )
+                os.makedirs(todo_dir, exist_ok=True)
+                
+                # Create filename with version number
+                spec_filename = os.path.basename(spec_path)
+                spec_basename = os.path.splitext(spec_filename)[0]
+                todo_filename = f"{spec_basename}_todo.json"
+                todo_path = os.path.join(todo_dir, todo_filename)
+                
+                try:
+                    # Add metadata to the todo list
+                    todo_list["project_name"] = project_name
+                    todo_list["doc_type"] = "engineering_todo"
+                    todo_list["generated_from"] = spec_path
+                    todo_list["timestamp"] = datetime.now().timestamp()
+                    todo_list["formatted_timestamp"] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    with open(todo_path, 'w') as f:
+                        json.dump(todo_list, f, indent=2)
+                    print(f"\nTodo list saved to: {todo_path}")
+                except Exception as e:
+                    print(f"Error saving todo list: {e}")
+            else:
+                print("Error: Cannot determine project directory for saving todo list")
     
     except Exception as e:
         print(f"✗ Failed to generate todo list: {str(e)}")
@@ -622,10 +681,11 @@ def create(config: Config) -> None:
     create_spec(config)
 
 @cli.command()
+@click.option('--project', help='Filter by project name')
 @click.option('--doc-type', help='Filter by document type')
 @click.pass_obj
-def list(config: Config, doc_type: Optional[str] = None) -> None:
-    """List all saved documents, optionally filtered by document type."""
+def list(config: Config, project: Optional[str] = None, doc_type: Optional[str] = None) -> None:
+    """List all saved documents, optionally filtered by project or document type."""
     if doc_type:
         config.DOCUMENT_TYPE = doc_type
     list_specs(config)
