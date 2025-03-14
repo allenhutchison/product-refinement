@@ -339,8 +339,8 @@ def list_specs(config: Config, project: Optional[str] = None, doc_type: Optional
     try:
         spec_manager = SpecificationManager(config)
         
-        # If doc_type is not provided and not selected, list all types
-        selected_doc_type = doc_type or getattr(config, 'DOCUMENT_TYPE_SELECTED', None)
+        # If doc_type is not provided but selected in config, use that one
+        selected_doc_type = doc_type or (config.DOCUMENT_TYPE if getattr(config, 'DOCUMENT_TYPE_SELECTED', False) else None)
         specs_by_project = spec_manager.list_specifications(project, selected_doc_type)
         
         if not specs_by_project:
