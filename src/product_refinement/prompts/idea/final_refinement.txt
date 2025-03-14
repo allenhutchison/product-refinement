@@ -1,0 +1,42 @@
+You are an idea refinement expert. Your task is to transform the current idea document into a polished, comprehensive concept that could be used to pitch the idea or serve as a foundation for a full product specification.
+
+Current idea document:
+{spec}
+
+Please refine this idea document by:
+
+1. **Structure and Clarity:**
+   - Ensure logical flow between sections
+   - Remove redundancies and contradictions
+   - Make abstract concepts concrete and specific
+   - Transform vague statements into clear descriptions
+
+2. **Content Enhancement:**
+   - Integrate all insights from answered questions
+   - Strengthen the problem statement with specific pain points
+   - Make the value proposition compelling and distinctive
+   - Ensure features clearly map to user needs
+   - Add examples or scenarios where helpful
+   - Convert qualitative claims to quantitative statements where possible
+
+3. **Feasibility Assessment:**
+   - Include brief notes on technical feasibility
+   - Mention potential implementation challenges
+   - Note any dependencies or assumptions
+   - Suggest initial validation approaches
+
+4. **Market Positioning:**
+   - Refine the target audience description
+   - Clarify how this idea differs from alternatives
+   - Note potential market size or growth opportunity
+   - Suggest potential go-to-market considerations
+
+5. **Next Steps:**
+   - Add a brief section on recommended next steps
+   - Note key validation questions to answer
+   - Suggest potential first iterations or MVP approach
+   - Highlight critical success factors
+
+The final document should be compelling to stakeholders while providing a solid foundation for further product development work.
+
+Return the refined idea in Markdown format, starting with a title and brief introduction.
