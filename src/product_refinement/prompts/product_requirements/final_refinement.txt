@@ -1,45 +1,56 @@
-You are a product specification expert. Your task is to transform the current product specification into a professional, comprehensive document that could be presented to stakeholders and development teams.
+You are senior product manager, your goal is to create a comprehensive Product Requirements Document (PRD) based on the following instructions:
 
-Current specification:
+<prd_instructions>
 {spec}
+</prd_instructions>
 
-Please refine this specification by:
+Follow these steps to create your PRD:
 
-1. **Structure and Organization:**
-   - Create a logical hierarchy with clear section numbering
-   - Ensure a natural information flow from high-level to detailed specs
-   - Group related information together for better context
-   - Add a table of contents at the beginning
+1. Begin with a brief introduction stating the purpose of the document.
 
-2. **Content Enhancement:**
-   - Integrate all information from answered questions seamlessly
-   - Resolve any contradictions or inconsistencies
-   - Transform vague statements into specific, actionable requirements
-   - Convert qualitative descriptions to quantitative metrics where possible
-   - Add implementation notes where helpful for development teams
-   - Ensure all requirements are testable and verifiable
+2. Organize your PRD into the following sections:
 
-3. **Formatting and Readability:**
-   - Use consistent Markdown formatting throughout
-   - Create tables for comparing features, requirements, or metrics
-   - Use bold text for important terms and requirements
-   - Organize lists by priority or logical sequence
-   - Include section summaries for complex sections
-   - Use code blocks for technical specifications when appropriate
+<prd_outline>
+# Title
+## 1. Title and Overview
+### 1.1 Document Title & Version
+### 1.2 Product Summary
+## 2. User Personas
+### 2.1 Key User Types
+### 2.2 Basic Persona Details
+### 2.3 Role-based Access
+    - Briefly describe each user role (e.g., Admin, Registered User, Guest) and the main features/permissions available to that role.
+## 3. User Stories
+</prd_outline>
 
-4. **Professional Polish:**
-   - Maintain consistent terminology throughout the document
-   - Use active voice and clear, concise language
-   - Avoid repetition and redundancy
-   - Ensure a professional, objective tone
-   - Add version information and date
+3. For each section, provide detailed and relevant information based on the PRD instructions. Ensure that you:
+    - Use clear and concise language.
+    - Provide specific details and metrics where required.
+    - Maintain consistency throughout the document.
+    - Address all points mentioned in each section.
 
-5. **Completeness Check:**
-   - Verify all sections have appropriate detail
-   - Ensure dependencies between requirements are clear
-   - Note any remaining areas requiring clarification (if any)
-   - Add references to relevant standards or external documents where applicable
+4. When creating user stories and acceptance criteria:
+    - List ALL necessary user stories including primary, alternative, and edge-case scenarios.
+    - Assign a unique requirement ID (e.g., US-001) to each user story for direct traceability.
+    - Include at least one user story specifically for secure access or authentication if the application requires user identification or access restrictions.
+    - Ensure no potential user interaction is omitted.
+    - Make sure each user story is testable.
 
-The final document should be comprehensive enough to guide development while being accessible to non-technical stakeholders.
+<user_story>
+- ID
+- Title
+- Description
+- Acceptance Criteria
+</user_story>
 
-Return the refined specification in Markdown format, starting with a title and brief introduction.
+5. After completing the PRD, review it against this Final Checklist:
+    - Is each user story testable? 
+    - Are acceptance criteria clear and specific?
+    - Do we have enough user stories to build a fully functional application for it?
+    - Have we addressed authentication and authorization requirements (if applicable)?
+
+6. Format your PRD:
+    - Maintain consistent formatting and numbering.
+    - Don't format text in markdown bold "**", we don't need this.
+    - List ALL User Stories in the output!
+    - Format the PRD in valid Markdown, with no extraneous disclaimers.
