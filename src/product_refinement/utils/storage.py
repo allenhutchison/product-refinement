@@ -274,8 +274,12 @@ class SpecificationManager:
                     # List specification files in this document type
                     spec_files = []
                     for filename in os.listdir(doc_type_path):
-                        # Skip non-JSON files and todo list files (which are companions to specs)
-                        if not filename.endswith('.json') or filename.endswith('_todo.json'):
+                        # Only include JSON files
+                        if not filename.endswith('.json'):
+                            continue
+                        
+                        # Special handling for todo files - only include them for engineering_todo document type
+                        if filename.endswith('_todo.json') and doc_type_dir != 'engineering_todo':
                             continue
                             
                         file_path = os.path.join(doc_type_path, filename)
